@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animal Village</title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#111;font-family:'Courier New',monospace}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#ui{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+
+#settings-btn{position:absolute;top:12px;right:12px;width:40px;height:40px;background:rgba(0,0,0,.7);border:2px solid #666;border-radius:8px;color:#fff;font-size:20px;cursor:pointer;pointer-events:all;display:flex;align-items:center;justify-content:center;z-index:50}
+#settings-btn:hover{background:rgba(80,80,80,.9)}
+
+#settings-panel{position:absolute;top:60px;right:12px;width:280px;background:rgba(15,15,35,.97);border:2px solid #556;border-radius:10px;padding:16px;color:#eee;pointer-events:all;z-index:100}
+#settings-panel h3{margin:0 0 10px;color:#99aaff;font-size:13px;letter-spacing:2px;text-transform:uppercase}
+#settings-panel label{display:block;font-size:10px;color:#99a;margin:10px 0 3px;text-transform:uppercase;letter-spacing:1px}
+#settings-panel input{width:100%;box-sizing:border-box;background:#0a0a1a;border:1px solid #445;border-radius:4px;color:#eef;padding:5px 8px;font-size:12px;font-family:monospace;outline:none}
+#settings-panel input:focus{border-color:#667}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px}
+.toggle-btn{padding:3px 14px;border-radius:4px;border:1px solid #556;cursor:pointer;font-size:11px;font-family:monospace;pointer-events:all}
+.toggle-btn.on{background:#2a6a2a;color:#afa;border-color:#4a9a4a}
+.toggle-btn.off{background:#2a2a2a;color:#888;border-color:#444}
+
+#dialog-box{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);width:min(680px,90vw);background:rgba(8,8,25,.97);border:2px solid #446;border-radius:12px;padding:14px;color:#eee;pointer-events:all;z-index:200;display:flex;flex-direction:column;gap:8px}
+#dialog-header{display:flex;justify-content:space-between;align-items:center}
+#dialog-header h3{margin:0;color:#88aaff;font-size:13px;letter-spacing:2px;text-transform:uppercase}
+#dialog-close{background:none;border:1px solid #445;border-radius:4px;color:#888;cursor:pointer;padding:2px 10px;font-size:11px;font-family:monospace}
+#dialog-close:hover{color:#ccc;border-color:#667}
+#dialog-history{overflow-y:auto;min-height:70px;max-height:240px;padding:8px;background:rgba(0,0,0,.4);border-radius:6px;font-size:12px;line-height:1.6;scroll-behavior:smooth}
+.msg-user{color:#7bcfff;margin-bottom:8px}
+.msg-ai{color:#ffd080;margin-bottom:8px}
+.msg-sys{color:#888;margin-bottom:8px;font-style:italic}
+.msg-err{color:#f88;margin-bottom:8px}
+.msg-label{font-size:9px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+#image-preview{display:none;align-items:center;gap:8px;font-size:11px;color:#888}
+#image-preview img{max-height:48px;border-radius:4px;border:1px solid #445}
+#img-clear{background:none;border:none;color:#a55;cursor:pointer;font-size:11px;pointer-events:all}
+#dialog-input-area{display:flex;gap:6px;align-items:flex-end}
+#dialog-text{flex:1;background:#0a0a1a;border:1px solid #445;border-radius:6px;color:#eee;padding:7px 10px;font-size:12px;font-family:monospace;resize:none;min-height:38px;max-height:80px;outline:none}
+#dialog-text:focus{border-color:#667}
+#dialog-image-btn{background:#111828;border:1px solid #445;border-radius:6px;color:#88aaff;cursor:pointer;padding:7px 10px;font-size:16px;line-height:1}
+#dialog-image-btn:hover{background:#1a2040}
+#dialog-send{background:#2a4a8a;border:none;border-radius:6px;color:#fff;cursor:pointer;padding:7px 14px;font-size:12px;font-weight:bold;white-space:nowrap}
+#dialog-send:hover:not(:disabled){background:#3a5aaa}
+#dialog-send:disabled{background:#1a2a3a;color:#556;cursor:default}
+
+#team-hud{position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.team-card{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.65);border:1px solid #445;border-radius:6px;padding:4px 10px;font-size:11px;color:#ddd}
+.team-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+#hint-bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);border:1px solid #445;border-radius:6px;padding:5px 14px;font-size:11px;color:#ccc;white-space:nowrap;pointer-events:none;transition:opacity .4s}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+  <button id="settings-btn" title="Settings">&#9881;</button>
+  <div id="settings-panel" class="hidden">
+    <h3>&#9881; Settings</h3>
+    <label>API Endpoint</label>
+    <input type="text" id="cfg-endpoint" placeholder="http://127.0.0.1:8888/v1/chat/completions">
+    <label>API Key (optional)</label>
+    <input type="password" id="cfg-apikey" placeholder="sk-...">
+    <label>Model Identifier</label>
+    <input type="text" id="cfg-model" placeholder="local-model">
+    <div class="toggle-row"><span>Background Music</span><button class="toggle-btn on" id="toggle-music">ON</button></div>
+    <div class="toggle-row"><span>Sound Effects</span><button class="toggle-btn on" id="toggle-sfx">ON</button></div>
+  </div>
+
+  <div id="dialog-box" class="hidden">
+    <div id="dialog-header">
+      <h3>&#128508; GGUF Oracle</h3>
+      <button id="dialog-close">&#x2715; Close</button>
+    </div>
+    <div id="dialog-history">
+      <div class="msg-ai"><div class="msg-label">GGUF Oracle</div>Greetings, traveler. I am the GGUF Oracle, keeper of ancient wisdom. Ask me anything &#8212; I can even analyze images you share!</div>
+    </div>
+    <div id="image-preview"><img id="preview-img" src="" alt=""><span id="preview-name"></span><button id="img-clear">&#x2715; remove</button></div>
+    <div id="dialog-input-area">
+      <textarea id="dialog-text" placeholder="Ask the Oracle..." rows="2"></textarea>
+      <button id="dialog-image-btn" title="Attach image">&#128247;</button>
+      <button id="dialog-send">Send</button>
+    </div>
+    <input type="file" id="file-input" accept="image/*" style="display:none">
+  </div>
+
+  <div id="team-hud"></div>
+  <div id="hint-bar">WASD / Arrows &#183; move &nbsp;&nbsp;|&nbsp;&nbsp; E &#183; interact</div>
+</div>
+<script>
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const TILE = 32, WORLD_W = 80, WORLD_H = 80;
+const WPX = WORLD_W * TILE, HPX = WORLD_H * TILE;
+const CX = WORLD_W / 2, CY = WORLD_H / 2; // center tile coords
+const SPRITE = 48, SPRITE_HALF = SPRITE * 0.75;
+
+const T_GRASS = 0, T_PATH = 1, T_PLAZA = 2, T_WATER = 3, T_SOLID = 4;
+
+const PAL = {
+  grass:'#4a8e3f', grassD:'#3d7a34', path:'#c8a96e', pathD:'#b8934a',
+  plaza:'#a0a0a0', plazaD:'#8c8c8c', water:'#3a88c5', waterL:'#5aa8e0',
+  trunk:'#7a4f2a', treeL:'#3a8f3a', treeD:'#2a6a2a',
+  shadow:'rgba(0,0,0,0.22)',
+};
+
+// ─── STATE ─────────────────────────────────────────────────────────────────────
+const cfg = { endpoint:'http://127.0.0.1:8888/v1/chat/completions', apiKey:'', model:'local-model', music:true, sfx:true };
+const cam = { x:0, y:0 };
+const keys = {}, justPressed = {};
+let interactTarget = null, dialogOpen = false, selectedImage = null;
+const dialogHistory = []; // for API calls
+
+// ─── AUDIO ─────────────────────────────────────────────────────────────────────
+const Aud = (() => {
+  let ctx=null, mGain=null, sGain=null, playing=false, timer=null, idx=0;
+  const MELODY=[261.63,293.66,329.63,392,349.23,329.63,293.66,261.63,392,440,392,349.23,329.63,261.63];
+
+  function init(){
+    if(ctx)return;
+    ctx=new(window.AudioContext||window.webkitAudioContext)();
+    mGain=ctx.createGain(); mGain.gain.value=0.1; mGain.connect(ctx.destination);
+    sGain=ctx.createGain(); sGain.gain.value=0.28; sGain.connect(ctx.destination);
+  }
+
+  function note(freq,dur,type='sine',g=sGain){
+    if(!ctx)return;
+    const o=ctx.createOscillator(), gn=ctx.createGain();
+    o.connect(gn); gn.connect(g);
+    o.type=type; o.frequency.setValueAtTime(freq,ctx.currentTime);
+    gn.gain.setValueAtTime(0,ctx.currentTime);
+    gn.gain.linearRampToValueAtTime(.35,ctx.currentTime+.02);
+    gn.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);
+    o.start(ctx.currentTime); o.stop(ctx.currentTime+dur);
+  }
+
+  function tick(){
+    if(!playing||!cfg.music)return;
+    const f=MELODY[idx%MELODY.length]; idx++;
+    note(f,.38,'triangle',mGain);
+    if(idx%4===0) note(f*1.498,.3,'sine',mGain);
+    timer=setTimeout(tick,420);
+  }
+
+  return {
+    init,
+    start(){ if(playing)return; playing=true; tick(); },
+    stop(){ playing=false; if(timer)clearTimeout(timer); },
+    sfx:{
+      step(){ if(!cfg.sfx||!ctx)return; note(80+Math.random()*30,.06,'triangle'); },
+      recruit(){ if(!cfg.sfx||!ctx)return; [523,659,784,1047].forEach((f,i)=>setTimeout(()=>note(f,.2,'sine'),i*100)); },
+      open(){ if(!cfg.sfx||!ctx)return; [440,550,660].forEach((f,i)=>setTimeout(()=>note(f,.14,'sine'),i*70)); },
+      close(){ if(!cfg.sfx||!ctx)return; [660,440,330].forEach((f,i)=>setTimeout(()=>note(f,.14,'sine'),i*60)); },
+      send(){ if(!cfg.sfx||!ctx)return; note(880,.09,'sine'); },
+      recv(){ if(!cfg.sfx||!ctx)return; [523,659,784,1047].forEach((f,i)=>setTimeout(()=>note(f,.14,'sine'),i*55)); },
+    }
+  };
+})();
+
+// ─── WORLD ─────────────────────────────────────────────────────────────────────
+const tiles = new Uint8Array(WORLD_W * WORLD_H).fill(T_GRASS);
+const decors = []; // {type,x,y,w?,h?,c?,c2?}
+
+function setT(tx,ty,t){ if(tx>=0&&ty>=0&&tx<WORLD_W&&ty<WORLD_H) tiles[ty*WORLD_W+tx]=t; }
+function getT(tx,ty){ if(tx<0||ty<0||tx>=WORLD_W||ty>=WORLD_H) return T_SOLID; return tiles[ty*WORLD_W+tx]; }
+
+function buildWorld(){
+  // Plaza
+  for(let y=CY-5;y<CY+5;y++) for(let x=CX-5;x<CX+5;x++) setT(x,y,T_PLAZA);
+
+  // Paths N/S/E/W (3-wide)
+  for(let d=1;d<=34;d++) for(let s=-1;s<=1;s++){
+    setT(CX+s, CY-5-d, T_PATH);
+    setT(CX+s, CY+5+d, T_PATH);
+    setT(CX-5-d, CY+s, T_PATH);
+    setT(CX+5+d, CY+s, T_PATH);
+  }
+
+  // Secondary diagonal paths
+  for(let d=1;d<=20;d++) for(let s=-1;s<=1;s++){
+    setT(CX-5-d+s, CY-5-d, T_PATH); setT(CX-5-d, CY-5-d+s, T_PATH);
+    setT(CX+5+d+s, CY-5-d, T_PATH); setT(CX+5+d, CY-5-d+s, T_PATH);
+    setT(CX-5-d+s, CY+5+d, T_PATH); setT(CX-5-d, CY+5+d+s, T_PATH);
+    setT(CX+5+d+s, CY+5+d, T_PATH); setT(CX+5+d, CY+5+d+s, T_PATH);
+  }
+
+  // Pond (bottom-right area)
+  const PR=4.8, PCX=CX+20, PCY=CY+20;
+  for(let y=PCY-6;y<=PCY+6;y++) for(let x=PCX-7;x<=PCX+7;x++)
+    if(Math.hypot(x-PCX,y-PCY)<PR) setT(x,y,T_WATER);
+
+  // Buildings
+  const bldgs=[
+    {tx:CX+12,ty:CY-18,w:7,h:5}, {tx:CX-19,ty:CY-17,w:6,h:5},
+    {tx:CX+14,ty:CY+13,w:6,h:6}, {tx:CX-17,ty:CY+14,w:7,h:5},
+    {tx:CX-26,ty:CY-7,w:6,h:5},  {tx:CX+22,ty:CY-4,w:5,h:5},
+    {tx:CX+18,ty:CY+24,w:6,h:5}, {tx:CX-23,ty:CY+23,w:7,h:5},
+    {tx:CX-9,ty:CY-24,w:6,h:5},  {tx:CX+7,ty:CY-23,w:5,h:5},
+    {tx:CX-30,ty:CY+12,w:5,h:5}, {tx:CX+28,ty:CY+10,w:5,h:5},
+  ];
+  const roofs=['#b04030','#8a4028','#4a2870','#205060','#205040','#806020'];
+  const walls=['#e8d4a0','#d4c890','#e0cca8','#d8d0b8','#e4d8b0','#dcc8a0'];
+  bldgs.forEach((b,i)=>{
+    const bx=b.tx*TILE, by=b.ty*TILE, bw=b.w*TILE, bh=b.h*TILE;
+    decors.push({type:'building',x:bx,y:by,w:bw,h:bh,c:walls[i%walls.length],c2:roofs[i%roofs.length]});
+    for(let ty2=b.ty;ty2<b.ty+b.h;ty2++) for(let tx2=b.tx;tx2<b.tx+b.w;tx2++) setT(tx2,ty2,T_SOLID);
+  });
+
+  // Trees
+  const rng=(min,max)=>min+Math.floor(Math.random()*(max-min));
+  for(let i=0;i<140;i++){
+    let tx,ty,tries=0;
+    do{ tx=rng(2,WORLD_W-2); ty=rng(2,WORLD_H-2); tries++; }
+    while(tries<20&&(getT(tx,ty)!==T_GRASS||Math.hypot(tx-CX,ty-CY)<9));
+    if(getT(tx,ty)===T_GRASS){
+      decors.push({type:'tree',x:tx*TILE,y:ty*TILE});
+      setT(tx,ty,T_SOLID);
+    }
+  }
+
+  // Flowers (pure decor, no collision)
+  const flc=['#ff6699','#ffcc44','#aa66ff','#ff99aa','#88ffbb','#ffaa55'];
+  for(let i=0;i<250;i++){
+    const tx=rng(1,WORLD_W-1), ty=rng(1,WORLD_H-1);
+    if(getT(tx,ty)===T_GRASS)
+      decors.push({type:'flower',x:tx*TILE+Math.random()*TILE,y:ty*TILE+Math.random()*TILE,c:flc[Math.floor(Math.random()*flc.length)]});
+  }
+}
+
+// ─── COLLISION ─────────────────────────────────────────────────────────────────
+function solid(tx,ty){ const t=getT(tx,ty); return t===T_SOLID||t===T_WATER; }
+function collides(px,py,r){
+  const tx0=Math.floor((px-r)/TILE), tx1=Math.floor((px+r)/TILE);
+  const ty0=Math.floor((py-r)/TILE), ty1=Math.floor((py+r)/TILE);
+  for(let ty=ty0;ty<=ty1;ty++) for(let tx=tx0;tx<=tx1;tx++)
+    if(solid(tx,ty)){
+      if(px+r>tx*TILE&&px-r<(tx+1)*TILE&&py+r>ty*TILE&&py-r<(ty+1)*TILE) return true;
+    }
+  return false;
+}
+
+// ─── DRAWING HELPERS ───────────────────────────────────────────────────────────
+const canvas=document.getElementById('game');
+const ctx2=canvas.getContext('2d');
+ctx2.imageSmoothingEnabled=false;
+const assets={};
+
+function loadImg(key,src){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{ assets[key]=img; res(); };
+    img.onerror=()=>res();
+    img.src=src;
+  });
+}
+
+function drawTile(tx,ty){
+  const t=getT(tx,ty), x=tx*TILE, y=ty*TILE, even=(tx+ty)%2===0;
+  switch(t){
+    case T_GRASS:  ctx2.fillStyle=even?PAL.grass:PAL.grassD; ctx2.fillRect(x,y,TILE,TILE); break;
+    case T_PATH:   ctx2.fillStyle=even?PAL.path:PAL.pathD;   ctx2.fillRect(x,y,TILE,TILE); break;
+    case T_PLAZA:  ctx2.fillStyle=even?PAL.plaza:PAL.plazaD; ctx2.fillRect(x,y,TILE,TILE); break;
+    case T_WATER:
+      ctx2.fillStyle=PAL.water; ctx2.fillRect(x,y,TILE,TILE);
+      if((tx+ty)%3===0){ ctx2.fillStyle=PAL.waterL; ctx2.fillRect(x+4,y+8,7,2); ctx2.fillRect(x+18,y+22,5,2); }
+      break;
+    default: // T_SOLID - not drawn as tile
+      ctx2.fillStyle=even?PAL.grass:PAL.grassD; ctx2.fillRect(x,y,TILE,TILE);
+  }
+}
+
+function drawDecor(d){
+  if(d.type==='building'){
+    // Shadow
+    ctx2.fillStyle='rgba(0,0,0,0.18)'; ctx2.fillRect(d.x+6,d.y+d.h,d.w,6);
+    // Wall
+    ctx2.fillStyle=d.c; ctx2.fillRect(d.x,d.y+10,d.w,d.h-10);
+    // Roof band
+    ctx2.fillStyle=d.c2; ctx2.fillRect(d.x,d.y,d.w,13);
+    // Roof highlight
+    ctx2.fillStyle='rgba(255,255,255,0.12)'; ctx2.fillRect(d.x,d.y,d.w,4);
+    // Door
+    ctx2.fillStyle='#6a4020'; ctx2.fillRect(d.x+d.w/2-7,d.y+d.h-22,14,22);
+    ctx2.fillStyle='#c8a060'; ctx2.fillRect(d.x+d.w/2+2,d.y+d.h-13,3,3);
+    // Windows
+    ctx2.fillStyle='#99ddff'; ctx2.fillRect(d.x+8,d.y+d.h-34,11,11);
+    if(d.w>96) ctx2.fillRect(d.x+d.w-19,d.y+d.h-34,11,11);
+    // Window shine
+    ctx2.fillStyle='rgba(255,255,255,0.4)'; ctx2.fillRect(d.x+9,d.y+d.h-33,4,4);
+  } else if(d.type==='tree'){
+    ctx2.fillStyle=PAL.shadow; ctx2.beginPath(); ctx2.ellipse(d.x+16,d.y+30,12,5,0,0,Math.PI*2); ctx2.fill();
+    ctx2.fillStyle=PAL.trunk; ctx2.fillRect(d.x+11,d.y+16,10,16);
+    ctx2.fillStyle=PAL.treeD; ctx2.fillRect(d.x+2,d.y+10,28,14);
+    ctx2.fillStyle=PAL.treeL; ctx2.fillRect(d.x+4,d.y+4,24,12); ctx2.fillRect(d.x+7,d.y,18,8);
+  } else if(d.type==='flower'){
+    ctx2.fillStyle=d.c; ctx2.fillRect(d.x-3,d.y-3,6,6);
+    ctx2.fillStyle='#ffff88'; ctx2.fillRect(d.x-1,d.y-1,2,2);
+  }
+}
+
+// ─── PIXEL ART ANIMALS ─────────────────────────────────────────────────────────
+function drawPig(c){
+  c.fillStyle='#f4a7b9'; c.fillRect(-12,-8,20,14);        // body
+  c.fillRect(6,-12,13,12);                                  // head
+  c.fillStyle='#e08898'; c.fillRect(15,-7,7,6);            // snout
+  c.fillStyle='#b06070'; c.fillRect(16,-6,2,2); c.fillRect(19,-6,2,2); // nostrils
+  c.fillStyle='#222'; c.fillRect(9,-10,3,3);               // eye
+  c.fillStyle='#e08898'; c.fillRect(7,-15,5,5);            // ear
+  c.fillStyle='#e898b0'; c.fillRect(-10,6,5,8); c.fillRect(-3,6,5,8); c.fillRect(4,6,5,8); // legs
+  c.fillRect(-13,-2,5,3); c.fillRect(-14,0,4,3);           // tail
+}
+
+function drawCow(c){
+  c.fillStyle='#f0f0f0'; c.fillRect(-13,-8,26,18);         // body
+  c.fillStyle='#222'; c.fillRect(-5,-6,9,7); c.fillRect(5,4,7,6); // patches
+  c.fillStyle='#f0f0f0'; c.fillRect(9,-13,15,13);          // head
+  c.fillStyle='#ddaaaa'; c.fillRect(20,-9,7,7);            // snout
+  c.fillStyle='#b07070'; c.fillRect(21,-8,2,2); c.fillRect(24,-8,2,2);
+  c.fillStyle='#222'; c.fillRect(12,-10,3,3);              // eye
+  c.fillStyle='#d4b040'; c.fillRect(11,-17,3,5); c.fillRect(17,-17,3,5); // horns
+  c.fillStyle='#ddd'; c.fillRect(-10,10,6,9); c.fillRect(-2,10,6,9); c.fillRect(5,10,6,9);
+  c.fillStyle='#f4b0b0'; c.fillRect(-3,7,8,5);             // udder
+}
+
+function drawCat(c){
+  c.fillStyle='#c8883a'; c.fillRect(-9,-6,17,13);          // body
+  c.fillStyle='#a06020'; c.fillRect(-6,-4,3,9); c.fillRect(1,-4,3,9); // stripes
+  c.fillStyle='#c8883a'; c.fillRect(6,-13,13,13);          // head
+  c.fillStyle='#c8883a'; c.fillRect(7,-18,4,6); c.fillRect(14,-18,4,6); // ears
+  c.fillStyle='#f4a0b0'; c.fillRect(8,-17,2,4); c.fillRect(15,-17,2,4);
+  c.fillStyle='#44bb44'; c.fillRect(8,-11,4,3); c.fillRect(14,-11,4,3); // eyes
+  c.fillStyle='#111'; c.fillRect(9,-10,2,3); c.fillRect(15,-10,2,3);
+  c.fillStyle='#ff8888'; c.fillRect(11,-7,3,2);            // nose
+  c.fillStyle='rgba(200,200,200,0.6)'; c.fillRect(3,-7,6,1); c.fillRect(18,-7,6,1); // whiskers
+  c.fillStyle='#b07830'; c.fillRect(-7,7,4,8); c.fillRect(1,7,4,8);    // legs
+  c.fillRect(-12,-2,4,13); c.fillRect(-14,8,4,4);          // tail
+}
+
+function drawDog(c){
+  c.fillStyle='#c8a060'; c.fillRect(-11,-6,22,15);         // body
+  c.fillRect(8,-13,14,13);                                  // head
+  c.fillStyle='#a07040'; c.fillRect(8,-12,5,10); c.fillRect(17,-12,5,10); // floppy ears
+  c.fillStyle='#e0b890'; c.fillRect(18,-8,8,7);            // snout
+  c.fillStyle='#222'; c.fillRect(22,-7,4,3); c.fillRect(23,-6,2,2); // nose
+  c.fillStyle='#333'; c.fillRect(11,-10,3,3);              // eye
+  c.fillStyle='#b89050'; c.fillRect(-9,9,5,9); c.fillRect(-2,9,5,9); c.fillRect(5,9,5,9); // legs
+  c.fillRect(-13,-3,4,8); c.fillRect(-12,-8,3,6);          // tail
+}
+
+function drawSheep(c){
+  c.fillStyle='#f0f0f0'; c.fillRect(-13,-10,26,17);        // wool body
+  c.fillStyle='#e0e0e0'; c.fillRect(-15,-6,6,11); c.fillRect(9,-6,6,11);
+  c.fillRect(-8,-15,8,6); c.fillRect(2,-14,8,6);
+  c.fillStyle='#555'; c.fillRect(9,-12,11,11);             // face
+  c.fillStyle='#fff'; c.fillRect(11,-9,3,3);               // eye
+  c.fillStyle='#111'; c.fillRect(12,-8,2,2);
+  c.fillStyle='#777'; c.fillRect(9,-14,4,4); c.fillRect(16,-14,4,4); // ears
+  c.fillStyle='#333'; c.fillRect(-9,7,4,10); c.fillRect(-2,7,4,10); c.fillRect(4,7,4,10);
+}
+
+function drawMonkey(c){
+  c.fillStyle='#8b5a2b'; c.fillRect(-9,-6,17,15);          // body
+  c.fillRect(5,-17,15,14);                                  // head
+  c.fillRect(3,-14,4,9); c.fillRect(19,-14,4,9);           // ears
+  c.fillStyle='#d4a060'; c.fillRect(4,-13,2,6); c.fillRect(20,-13,2,6);
+  c.fillStyle='#d4a060'; c.fillRect(7,-14,10,11);          // face
+  c.fillStyle='#222'; c.fillRect(8,-13,3,3); c.fillRect(14,-13,3,3); // eyes
+  c.fillStyle='#c89060'; c.fillRect(10,-8,4,4);            // snout
+  c.fillStyle='#8b5a2b'; c.fillRect(-7,9,5,9); c.fillRect(1,9,5,9); // legs
+  c.fillRect(-11,-2,4,11); c.fillRect(7,-2,4,11);          // arms
+  c.fillRect(-13,3,5,5); c.fillRect(-15,7,4,4);            // tail
+}
+
+function drawElephant(c){
+  c.fillStyle='#9090a8'; c.fillRect(-15,-10,30,22);        // body
+  c.fillRect(9,-17,18,18);                                  // head
+  c.fillStyle='#a0a0bc'; c.fillRect(5,-16,6,20);           // ear
+  c.fillStyle='#8080a0'; c.fillRect(23,-8,7,22); c.fillRect(25,13,7,6); // trunk
+  c.fillStyle='#222'; c.fillRect(14,-13,4,4);              // eye
+  c.fillStyle='#fff'; c.fillRect(14,-13,3,3); c.fillStyle='#111'; c.fillRect(15,-12,2,2);
+  c.fillStyle='#f0e0b0'; c.fillRect(23,-4,9,3); c.fillRect(30,-2,5,3); // tusk
+  c.fillStyle='#8080a0'; c.fillRect(-12,12,7,12); c.fillRect(-3,12,7,12); c.fillRect(4,12,7,12);
+}
+
+const ANIMAL_DRAW={pig:drawPig,cow:drawCow,cat:drawCat,dog:drawDog,sheep:drawSheep,monkey:drawMonkey,elephant:drawElephant};
+
+// ─── ENTITIES ──────────────────────────────────────────────────────────────────
+class Player{
+  constructor(x,y){ this.x=x; this.y=y; this.facing='down'; this.moving=false; this.walkPhase=0; this.stepT=0; }
+  update(dt){
+    let dx=0,dy=0;
+    if(keys['arrowleft']||keys['a']) dx-=1;
+    if(keys['arrowright']||keys['d']) dx+=1;
+    if(keys['arrowup']||keys['w']) dy-=1;
+    if(keys['arrowdown']||keys['s']) dy+=1;
+    this.moving=dx!==0||dy!==0;
+    if(this.moving){
+      const len=Math.sqrt(dx*dx+dy*dy); dx/=len; dy/=len;
+      const spd=120*dt;
+      const nx=this.x+dx*spd, ny=this.y+dy*spd;
+      if(!collides(nx,this.y,13)) this.x=nx;
+      if(!collides(this.x,ny,13)) this.y=ny;
+      this.x=Math.max(16,Math.min(WPX-16,this.x));
+      this.y=Math.max(16,Math.min(HPX-16,this.y));
+      if(Math.abs(dx)>Math.abs(dy)) this.facing=dx>0?'right':'left';
+      else this.facing=dy>0?'down':'up';
+      this.walkPhase+=dt*9;
+      this.stepT+=dt;
+      if(this.stepT>0.28){ this.stepT=0; Aud.sfx.step(); }
+    }
+  }
+}
+
+class TeamMember{
+  constructor(id,x,y,name,color,imgKey){
+    this.id=id; this.x=x; this.y=y; this.name=name; this.color=color; this.imgKey=imgKey;
+    this.joined=false; this.facing='down'; this.moving=false; this.walkPhase=0;
+    this.tx=x; this.ty=y; this.idleTimer=Math.random()*3;
+  }
+  update(dt,leader){
+    if(!this.joined){
+      this.idleTimer-=dt;
+      if(this.idleTimer<0){ this.idleTimer=2+Math.random()*3; const a=Math.random()*Math.PI*2,d=20+Math.random()*60; this.tx=Math.max(32,Math.min(WPX-32,this.x+Math.cos(a)*d)); this.ty=Math.max(32,Math.min(HPX-32,this.y+Math.sin(a)*d)); }
+    } else {
+      const dx=leader.x-this.x, dy=leader.y-this.y, dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist>44){ this.tx=leader.x-(dx/dist)*38; this.ty=leader.y-(dy/dist)*38; }
+    }
+    const dx=this.tx-this.x, dy=this.ty-this.y, dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>6){
+      const spd=Math.min(125*dt,dist); const mx=(dx/dist)*spd, my=(dy/dist)*spd;
+      if(!collides(this.x+mx,this.y,12)) this.x+=mx;
+      if(!collides(this.x,this.y+my,12)) this.y+=my;
+      this.x=Math.max(16,Math.min(WPX-16,this.x)); this.y=Math.max(16,Math.min(HPX-16,this.y));
+      if(Math.abs(dx)>Math.abs(dy)) this.facing=dx>0?'right':'left'; else this.facing=dy>0?'down':'up';
+      this.moving=true; this.walkPhase+=dt*8;
+    } else this.moving=false;
+  }
+}
+
+class Animal{
+  constructor(type,x,y){
+    this.type=type; this.x=x; this.y=y; this.tx=x; this.ty=y;
+    this.spd=30+Math.random()*30; this.phase=Math.random()*Math.PI*2;
+    this.facing='down'; this.idle=true; this.timer=Math.random()*3; this.walkPhase=0;
+  }
+  update(dt){
+    this.timer-=dt; this.phase+=dt;
+    if(this.timer<0){
+      this.idle=!this.idle;
+      if(!this.idle){ const a=Math.random()*Math.PI*2,d=30+Math.random()*90; this.tx=Math.max(TILE,Math.min((WORLD_W-1)*TILE,this.x+Math.cos(a)*d)); this.ty=Math.max(TILE,Math.min((WORLD_H-1)*TILE,this.y+Math.sin(a)*d)); this.timer=1.5+Math.random()*2.5; }
+      else this.timer=0.8+Math.random()*2;
+    }
+    if(!this.idle){
+      const dx=this.tx-this.x, dy=this.ty-this.y, dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist>5){
+        const spd=Math.min(this.spd*dt,dist);
+        const mx=(dx/dist)*spd, my=(dy/dist)*spd;
+        if(!collides(this.x+mx,this.y,10)) this.x+=mx; else this.idle=true;
+        if(!collides(this.x,this.y+my,10)) this.y+=my; else this.idle=true;
+        this.x=Math.max(TILE,Math.min((WORLD_W-1)*TILE,this.x));
+        this.y=Math.max(TILE,Math.min((WORLD_H-1)*TILE,this.y));
+        if(Math.abs(dx)>Math.abs(dy)) this.facing=dx>0?'right':'left'; else this.facing=dy>0?'down':'up';
+        this.walkPhase+=dt*7;
+      } else this.idle=true;
+    }
+  }
+}
+
+// ─── GAME ENTITIES ─────────────────────────────────────────────────────────────
+let player, teamMembers, animals, statuePos;
+
+function initEntities(){
+  const sx=CX*TILE, sy=CY*TILE;
+  player=new Player(sx+100, sy+90);
+  statuePos={x:sx, y:sy};
+  teamMembers=[
+    new TeamMember('zombie',  sx-110, sy+160, 'Zombie',  '#5599ff', 'zombie'),
+    new TeamMember('lobster', sx+210, sy-130, 'Lobster', '#ff88cc', 'lobster'),
+    new TeamMember('durian',  sx-200, sy-170, 'Durian',  '#ddcc00', 'durian'),
+  ];
+  animals=[];
+  const types=['pig','cow','cat','dog','sheep','monkey','elephant'];
+  for(let rep=0;rep<4;rep++) types.forEach(t=>{
+    let x,y,tries=0;
+    do{ x=(2+Math.floor(Math.random()*(WORLD_W-4)))*TILE; y=(2+Math.floor(Math.random()*(WORLD_H-4)))*TILE; tries++; }
+    while(tries<30&&(collides(x,y,16)||Math.hypot(x-sx,y-sy)<160));
+    if(tries<30) animals.push(new Animal(t,x,y));
+  });
+}
+
+// ─── DRAWING ───────────────────────────────────────────────────────────────────
+function shadow(x,y,rx=16,ry=5){
+  ctx2.fillStyle=PAL.shadow; ctx2.beginPath(); ctx2.ellipse(x,y,rx,ry,0,0,Math.PI*2); ctx2.fill();
+}
+
+function drawSprite(entity, imgKey, fallColor, size=SPRITE){
+  const bob=entity.moving?Math.sin(entity.walkPhase)*2.5:Math.sin(Date.now()/1200)*0.8;
+  shadow(entity.x, entity.y+4, size*0.32, size*0.12);
+  const img=assets[imgKey];
+  ctx2.save();
+  ctx2.translate(entity.x, entity.y+bob);
+  if(entity.facing==='left') ctx2.scale(-1,1);
+  if(img){
+    ctx2.drawImage(img,-size/2,-size*0.85,size,size);
+  } else {
+    ctx2.fillStyle=fallColor;
+    ctx2.fillRect(-size/2,-size*0.85,size,size);
+  }
+  ctx2.restore();
+}
+
+function drawAnimalEntity(a){
+  const fn=ANIMAL_DRAW[a.type]; if(!fn) return;
+  const bob=!a.idle?Math.sin(a.walkPhase)*2:Math.sin(a.phase*1.5)*0.6;
+  shadow(a.x,a.y+4,12,4);
+  ctx2.save();
+  ctx2.translate(a.x,a.y-14+bob);
+  if(a.facing==='left') ctx2.scale(-1,1);
+  fn(ctx2);
+  ctx2.restore();
+  // name tag
+  const name=a.type[0].toUpperCase()+a.type.slice(1);
+  ctx2.font='9px monospace'; ctx2.textAlign='center';
+  const tw=ctx2.measureText(name).width+8;
+  ctx2.fillStyle='rgba(0,0,0,0.5)'; ctx2.fillRect(a.x-tw/2,a.y-40,tw,13);
+  ctx2.fillStyle='#ddd'; ctx2.fillText(name,a.x,a.y-30);
+}
+
+function drawStatue(){
+  const {x,y}=statuePos;
+  shadow(x,y+8,32,10);
+  const img=assets['statue'];
+  if(img){
+    ctx2.drawImage(img,x-40,y-90,80,100);
+  } else {
+    // Fallback stone statue
+    ctx2.fillStyle='#888'; ctx2.fillRect(x-18,y-80,36,85);
+    ctx2.fillStyle='#999'; ctx2.fillRect(x-22,y-90,44,14);
+    ctx2.fillStyle='#777'; ctx2.fillRect(x-26,y-10,52,16);
+    ctx2.fillStyle='#aaa'; ctx2.font='bold 11px monospace'; ctx2.textAlign='center'; ctx2.fillText('GGUF',x,y-42);
+  }
+  // Glow ring if close
+  if(interactTarget&&interactTarget.type==='statue'){
+    ctx2.strokeStyle='rgba(180,200,255,0.5)'; ctx2.lineWidth=3;
+    ctx2.beginPath(); ctx2.ellipse(x,y+4,44,16,0,0,Math.PI*2); ctx2.stroke();
+  }
+}
+
+function drawLabel(x,y,text,color='#eee'){
+  ctx2.font='9px monospace'; ctx2.textAlign='center';
+  const tw=ctx2.measureText(text).width+8;
+  ctx2.fillStyle='rgba(0,0,0,0.55)'; ctx2.fillRect(x-tw/2,y-SPRITE-13,tw,13);
+  ctx2.fillStyle=color; ctx2.fillText(text,x,y-SPRITE-3);
+}
+
+function drawInteractPrompt(ex,ey,text){
+  ctx2.font='10px monospace'; ctx2.textAlign='center';
+  const tw=ctx2.measureText(text).width+16;
+  const py=ey-SPRITE-28;
+  ctx2.fillStyle='rgba(10,10,40,0.88)'; ctx2.fillRect(ex-tw/2,py-13,tw,16);
+  ctx2.strokeStyle='#667'; ctx2.lineWidth=1; ctx2.strokeRect(ex-tw/2,py-13,tw,16);
+  ctx2.fillStyle='#cce'; ctx2.fillText(text,ex,py);
+}
+
+// ─── INTERACT ──────────────────────────────────────────────────────────────────
+const INTERACT_R=70;
+function findTarget(){
+  const {x:px,y:py}=player;
+  if(Math.hypot(statuePos.x-px,statuePos.y-py)<INTERACT_R+24) return {type:'statue'};
+  for(const m of teamMembers)
+    if(!m.joined&&Math.hypot(m.x-px,m.y-py)<INTERACT_R) return {type:'recruit',member:m};
+  return null;
+}
+
+function doInteract(){
+  if(!interactTarget) return;
+  if(interactTarget.type==='statue'){ openDialog(); }
+  else if(interactTarget.type==='recruit'){
+    interactTarget.member.joined=true;
+    Aud.sfx.recruit();
+    updateTeamHUD();
+    setHint(`${interactTarget.member.name} joined your team!`,3000);
+  }
+}
+
+// ─── AI DIALOG ─────────────────────────────────────────────────────────────────
+function openDialog(){
+  dialogOpen=true;
+  document.getElementById('dialog-box').classList.remove('hidden');
+  document.getElementById('hint-bar').classList.add('hidden');
+  Aud.sfx.open();
+}
+function closeDialog(){
+  dialogOpen=false;
+  document.getElementById('dialog-box').classList.add('hidden');
+  document.getElementById('hint-bar').classList.remove('hidden');
+  Aud.sfx.close();
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
+async function sendMsg(){
+  const textEl=document.getElementById('dialog-text');
+  const sendBtn=document.getElementById('dialog-send');
+  const text=textEl.value.trim();
+  if(!text&&!selectedImage) return;
+  sendBtn.disabled=true;
+  Aud.sfx.send();
+  const hist=document.getElementById('dialog-history');
+
+  // User bubble
+  const uDiv=document.createElement('div'); uDiv.className='msg-user';
+  uDiv.innerHTML=`<div class="msg-label">You</div>${esc(text)}${selectedImage?' <em>[image attached]</em>':''}`;
+  hist.appendChild(uDiv);
+
+  // Build API message content
+  let userContent;
+  if(selectedImage){
+    userContent=[{type:'text',text:text||'Please describe this image.'},{type:'image_url',image_url:{url:selectedImage.dataUrl}}];
+  } else {
+    userContent=text;
+  }
+  dialogHistory.push({role:'user',content:userContent});
+
+  textEl.value=''; clearImage();
+  hist.scrollTop=hist.scrollHeight;
+
+  // Thinking indicator
+  const aiDiv=document.createElement('div'); aiDiv.className='msg-ai';
+  aiDiv.innerHTML='<div class="msg-label">GGUF Oracle</div><em>Consulting the ancient knowledge...</em>';
+  hist.appendChild(aiDiv); hist.scrollTop=hist.scrollHeight;
+
+  try{
+    const res=await fetch(cfg.endpoint,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',...(cfg.apiKey?{Authorization:`Bearer ${cfg.apiKey}`}:{})},
+      body:JSON.stringify({
+        model:cfg.model,
+        messages:[
+          {role:'system',content:'You are the GGUF Oracle, a wise ancient stone statue in a cozy animal village. Speak in a warm, slightly mystical tone. Be concise (2-3 sentences). When analyzing images, describe what you see in a playful village-oracle style.'},
+          ...dialogHistory
+        ],
+        max_tokens:350,stream:false
+      })
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const data=await res.json();
+    const reply=data.choices?.[0]?.message?.content||'The Oracle remains silent...';
+    dialogHistory.push({role:'assistant',content:reply});
+    aiDiv.innerHTML=`<div class="msg-label">GGUF Oracle</div>${esc(reply)}`;
+    Aud.sfx.recv();
+  } catch(e){
+    aiDiv.className='msg-err';
+    aiDiv.innerHTML=`<div class="msg-label">Error</div>${esc(e.message)}`;
+  }
+  hist.scrollTop=hist.scrollHeight;
+  sendBtn.disabled=false;
+}
+
+// ─── IMAGE HANDLING ─────────────────────────────────────────────────────────────
+function clearImage(){
+  selectedImage=null;
+  document.getElementById('image-preview').style.display='none';
+  document.getElementById('preview-img').src='';
+  document.getElementById('file-input').value='';
+}
+function handleFile(file){
+  if(!file||!file.type.startsWith('image/')) return;
+  const r=new FileReader();
+  r.onload=e=>{ selectedImage={dataUrl:e.target.result,file}; document.getElementById('preview-img').src=e.target.result; document.getElementById('preview-name').textContent=file.name; document.getElementById('image-preview').style.display='flex'; };
+  r.readAsDataURL(file);
+}
+
+// ─── SETTINGS ──────────────────────────────────────────────────────────────────
+function loadCfg(){
+  try{ Object.assign(cfg,JSON.parse(localStorage.getItem('animalVillageCfg')||'{}')); } catch{}
+  document.getElementById('cfg-endpoint').value=cfg.endpoint;
+  document.getElementById('cfg-apikey').value=cfg.apiKey;
+  document.getElementById('cfg-model').value=cfg.model;
+  setToggle('toggle-music',cfg.music);
+  setToggle('toggle-sfx',cfg.sfx);
+}
+function saveCfg(){
+  cfg.endpoint=document.getElementById('cfg-endpoint').value||cfg.endpoint;
+  cfg.apiKey=document.getElementById('cfg-apikey').value;
+  cfg.model=document.getElementById('cfg-model').value||cfg.model;
+  localStorage.setItem('animalVillageCfg',JSON.stringify(cfg));
+}
+function setToggle(id,on){ const b=document.getElementById(id); b.textContent=on?'ON':'OFF'; b.className='toggle-btn '+(on?'on':'off'); }
+
+// ─── HUD ───────────────────────────────────────────────────────────────────────
+function updateTeamHUD(){
+  const hud=document.getElementById('team-hud'); hud.innerHTML='';
+  teamMembers.filter(m=>m.joined).forEach(m=>{
+    const el=document.createElement('div'); el.className='team-card';
+    el.innerHTML=`<div class="team-dot" style="background:${m.color}"></div>${m.name}`;
+    hud.appendChild(el);
+  });
+}
+
+let hintTimeout=null;
+function setHint(text,dur=0){
+  const el=document.getElementById('hint-bar');
+  el.textContent=text; el.style.opacity='1';
+  if(hintTimeout) clearTimeout(hintTimeout);
+  if(dur>0) hintTimeout=setTimeout(()=>{ el.textContent='WASD / Arrows · move  |  E · interact'; },dur);
+}
+
+// ─── RENDER ────────────────────────────────────────────────────────────────────
+function resizeCanvas(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; ctx2.imageSmoothingEnabled=false; }
+
+function updateCam(){
+  cam.x=player.x-canvas.width/2; cam.y=player.y-canvas.height/2;
+  cam.x=Math.max(0,Math.min(WPX-canvas.width,cam.x));
+  cam.y=Math.max(0,Math.min(HPX-canvas.height,cam.y));
+}
+
+function render(){
+  ctx2.clearRect(0,0,canvas.width,canvas.height);
+  ctx2.save(); ctx2.translate(-cam.x,-cam.y);
+
+  const tx0=Math.max(0,Math.floor(cam.x/TILE)), ty0=Math.max(0,Math.floor(cam.y/TILE));
+  const tx1=Math.min(WORLD_W-1,Math.ceil((cam.x+canvas.width)/TILE));
+  const ty1=Math.min(WORLD_H-1,Math.ceil((cam.y+canvas.height)/TILE));
+
+  for(let ty=ty0;ty<=ty1;ty++) for(let tx=tx0;tx<=tx1;tx++) drawTile(tx,ty);
+
+  // Flowers first (ground layer)
+  const cx1=cam.x, cy1=cam.y, cx2=cam.x+canvas.width+40, cy2=cam.y+canvas.height+40;
+  for(const d of decors) if(d.type==='flower'&&d.x>cx1-20&&d.x<cx2&&d.y>cy1-20&&d.y<cy2) drawDecor(d);
+
+  // Collect renderables, sort by Y for painter's algorithm
+  const R=[];
+  for(const d of decors){
+    if(d.type==='flower') continue;
+    const dx=d.x,dy=d.y,dw=d.w||TILE,dh=d.h||TILE;
+    if(dx+dw<cx1||dx>cx2||dy+dh<cy1||dy>cy2) continue;
+    const sortY=d.type==='building'?dy+dh:dy+TILE;
+    R.push({sortY,draw:()=>drawDecor(d)});
+  }
+  for(const a of animals){
+    if(Math.abs(a.x-player.x)>canvas.width/2+60||Math.abs(a.y-player.y)>canvas.height/2+60) continue;
+    R.push({sortY:a.y+4,draw:()=>drawAnimalEntity(a)});
+  }
+  // Statue
+  R.push({sortY:statuePos.y+8,draw:drawStatue});
+  // Team members
+  for(const m of teamMembers){
+    const captured=m;
+    R.push({sortY:m.y,draw:()=>{
+      drawSprite(captured,captured.imgKey,captured.color);
+      drawLabel(captured.x,captured.y,captured.name,captured.joined?captured.color:'#aaa');
+      if(!captured.joined&&interactTarget&&interactTarget.type==='recruit'&&interactTarget.member===captured)
+        drawInteractPrompt(captured.x,captured.y,`[E] Recruit ${captured.name}`);
+    }});
+  }
+  // Player
+  R.push({sortY:player.y,draw:()=>{
+    drawSprite(player,'connector','#44cc44');
+    drawLabel(player.x,player.y,'Connector','#66ee66');
+  }});
+  // Statue interact prompt
+  if(interactTarget&&interactTarget.type==='statue'){
+    R.push({sortY:statuePos.y-80,draw:()=>drawInteractPrompt(statuePos.x,statuePos.y+30,'[E] Talk to Oracle')});
+  }
+
+  R.sort((a,b)=>a.sortY-b.sortY);
+  for(const r of R) r.draw();
+
+  ctx2.restore();
+}
+
+// ─── GAME LOOP ─────────────────────────────────────────────────────────────────
+let lastT=0;
+function loop(ts){
+  const dt=Math.min((ts-lastT)/1000,.05); lastT=ts;
+  if(!dialogOpen){
+    player.update(dt);
+    updateCam();
+    interactTarget=findTarget();
+    let leader=player;
+    for(const m of teamMembers){ m.update(dt,leader); if(m.joined) leader=m; }
+    for(const a of animals) a.update(dt);
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ─── SETUP ─────────────────────────────────────────────────────────────────────
+function setupInput(){
+  window.addEventListener('keydown',e=>{
+    const k=e.key.toLowerCase();
+    if(!keys[k]) justPressed[k]=true;
+    keys[k]=true;
+    if(k==='e'&&!dialogOpen) doInteract();
+    if(k==='escape'&&dialogOpen) closeDialog();
+    if(!dialogOpen&&['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+  });
+  window.addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+}
+
+function setupUI(){
+  // Audio init on first interaction
+  let audioStarted=false;
+  function startAudio(){ if(audioStarted)return; audioStarted=true; Aud.init(); if(cfg.music) Aud.start(); }
+  window.addEventListener('keydown',startAudio,{once:true});
+  window.addEventListener('click',startAudio,{once:true});
+
+  // Settings panel toggle
+  document.getElementById('settings-btn').addEventListener('click',()=>{
+    startAudio();
+    document.getElementById('settings-panel').classList.toggle('hidden');
+  });
+  ['cfg-endpoint','cfg-apikey','cfg-model'].forEach(id=>document.getElementById(id).addEventListener('change',saveCfg));
+
+  document.getElementById('toggle-music').addEventListener('click',()=>{
+    cfg.music=!cfg.music; setToggle('toggle-music',cfg.music);
+    if(cfg.music) Aud.start(); else Aud.stop();
+    saveCfg();
+  });
+  document.getElementById('toggle-sfx').addEventListener('click',()=>{
+    cfg.sfx=!cfg.sfx; setToggle('toggle-sfx',cfg.sfx); saveCfg();
+  });
+
+  // Dialog
+  document.getElementById('dialog-close').addEventListener('click',closeDialog);
+  document.getElementById('dialog-send').addEventListener('click',sendMsg);
+  document.getElementById('dialog-text').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMsg(); } });
+
+  // Image
+  document.getElementById('dialog-image-btn').addEventListener('click',()=>document.getElementById('file-input').click());
+  document.getElementById('file-input').addEventListener('change',e=>handleFile(e.target.files[0]));
+  document.getElementById('img-clear').addEventListener('click',clearImage);
+
+  // Drag-drop image onto dialog
+  document.getElementById('dialog-box').addEventListener('dragover',e=>e.preventDefault());
+  document.getElementById('dialog-box').addEventListener('drop',e=>{ e.preventDefault(); handleFile(e.dataTransfer.files[0]); });
+}
+
+async function init(){
+  resizeCanvas();
+  window.addEventListener('resize',resizeCanvas);
+  await Promise.all([
+    loadImg('connector','character1-connector.png'),
+    loadImg('zombie','character2-zombie.png'),
+    loadImg('lobster','character3-lobster.png'),
+    loadImg('durian','character4-durian.png'),
+    loadImg('statue','gguf-statue.png'),
+  ]);
+  buildWorld();
+  initEntities();
+  loadCfg();
+  setupInput();
+  setupUI();
+  updateTeamHUD();
+  setHint('WASD / Arrows · move  |  E · interact');
+  lastT=performance.now();
+  requestAnimationFrame(loop);
+}
+
+init();
+</script>
+</body>
+</html>
