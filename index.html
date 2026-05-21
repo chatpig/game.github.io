@@ -53,12 +53,42 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 #hint-bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);border:1px solid #445;border-radius:6px;padding:5px 14px;font-size:11px;color:#ccc;white-space:nowrap;pointer-events:none;transition:opacity .4s}
 
 .hidden{display:none!important}
+
+#editor-btn{position:absolute;top:12px;right:60px;width:40px;height:40px;background:rgba(0,0,0,.7);border:2px solid #666;border-radius:8px;color:#fff;font-size:18px;cursor:pointer;pointer-events:all;display:flex;align-items:center;justify-content:center;z-index:50}
+#editor-btn:hover{background:rgba(80,80,80,.9)}
+#editor-btn.active{background:rgba(40,80,40,.9);border-color:#4a9a4a}
+
+#editor-panel{position:absolute;top:0;left:0;width:180px;height:100%;background:rgba(8,8,22,.96);border-right:2px solid #334;padding:10px 8px;box-sizing:border-box;overflow-y:auto;pointer-events:all;z-index:49;display:flex;flex-direction:column;gap:2px}
+#editor-panel h3{margin:0 0 6px;color:#88cc88;font-size:11px;letter-spacing:2px;text-transform:uppercase}
+.pal-section{font-size:9px;color:#556;text-transform:uppercase;letter-spacing:1px;margin:8px 0 2px;padding-top:6px;border-top:1px solid #223}
+.pal-item{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:11px;color:#aab;border:1px solid transparent}
+.pal-item:hover{background:rgba(255,255,255,.07);border-color:#334}
+.pal-item.active{background:rgba(80,160,80,.2);border-color:#4a7a4a;color:#cec}
+.pal-swatch{width:14px;height:14px;border-radius:2px;flex-shrink:0;border:1px solid rgba(255,255,255,.15)}
+#editor-actions{margin-top:auto;padding-top:8px;border-top:1px solid #223;display:flex;flex-direction:column;gap:4px}
+.ed-btn{padding:5px 8px;border-radius:4px;border:1px solid #334;background:#0d1220;color:#99aacc;font-size:10px;cursor:pointer;font-family:monospace;text-align:center;width:100%;box-sizing:border-box}
+.ed-btn:hover{background:#162030;color:#bbddff}
+.ed-btn.green{border-color:#3a6a3a;color:#8aca8a}.ed-btn.green:hover{background:#162816}
+.ed-btn.red{border-color:#6a2a2a;color:#ca7a7a}.ed-btn.red:hover{background:#281616}
+#editor-cursor-info{font-size:9px;color:#445;text-align:center;padding:2px 0}
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="ui">
   <button id="settings-btn" title="Settings">&#9881;</button>
+  <button id="editor-btn" title="Map Editor">&#9783;</button>
+  <div id="editor-panel" class="hidden">
+    <h3>&#9783; Map Editor</h3>
+    <div id="pal-items"></div>
+    <div id="editor-actions">
+      <div id="editor-cursor-info">hover map to place</div>
+      <button class="ed-btn green" id="editor-play">&#9654; Play Map</button>
+      <button class="ed-btn" id="editor-save">&#128190; Save JSON</button>
+      <label class="ed-btn" style="cursor:pointer">&#128194; Load JSON<input type="file" id="editor-load-input" accept=".json" style="display:none"></label>
+      <button class="ed-btn red" id="editor-clear">&#128465; Clear All</button>
+    </div>
+  </div>
   <div id="settings-panel" class="hidden">
     <h3>&#9881; Settings</h3>
     <label>API Endpoint</label>
@@ -777,7 +807,13 @@ function render(){
 let lastT=0;
 function loop(ts){
   const dt=Math.min((ts-lastT)/1000,.05); lastT=ts;
-  if(!dialogOpen){
+  if(editorMode){
+    const spd=220*dt;
+    if(keys['a']||keys['arrowleft']) cam.x=Math.max(0,cam.x-spd);
+    if(keys['d']||keys['arrowright']) cam.x=Math.min(WPX-canvas.width,cam.x+spd);
+    if(keys['w']||keys['arrowup']) cam.y=Math.max(0,cam.y-spd);
+    if(keys['s']||keys['arrowdown']) cam.y=Math.min(HPX-canvas.height,cam.y+spd);
+  } else if(!dialogOpen){
     player.update(dt);
     updateCam();
     interactTarget=findTarget();
@@ -786,7 +822,251 @@ function loop(ts){
     for(const a of animals) a.update(dt);
   }
   render();
+  if(editorMode) renderEditorOverlay();
   requestAnimationFrame(loop);
+}
+
+// ─── MAP EDITOR ────────────────────────────────────────────────────────────────
+let editorMode=false, editorMouseDown=false, editorMouseTx=-1, editorMouseTy=-1;
+let editorTool='grass';
+
+const editorEnt={playerStart:null,statuePos:null,teamMembers:[],animals:[]};
+
+const PALETTE=[
+  {id:'grass',   label:'Grass',       cat:'Terrain',  color:'#4a8e3f'},
+  {id:'path',    label:'Road',        cat:'Terrain',  color:'#c8a96e'},
+  {id:'plaza',   label:'Plaza',       cat:'Terrain',  color:'#a0a0a0'},
+  {id:'water',   label:'Water',       cat:'Terrain',  color:'#3a88c5'},
+  {id:'tree',    label:'Tree',        cat:'Nature',   color:'#3a8f3a'},
+  {id:'flower',  label:'Flower',      cat:'Nature',   color:'#ff6699'},
+  {id:'building',label:'House',       cat:'Structure',color:'#c8a060'},
+  {id:'pig',     label:'Pig',         cat:'Animal',   color:'#f4a7b9'},
+  {id:'cow',     label:'Cow',         cat:'Animal',   color:'#e0e0e0'},
+  {id:'cat',     label:'Cat',         cat:'Animal',   color:'#c8883a'},
+  {id:'dog',     label:'Dog',         cat:'Animal',   color:'#c8a060'},
+  {id:'sheep',   label:'Sheep',       cat:'Animal',   color:'#f0f0f0'},
+  {id:'monkey',  label:'Monkey',      cat:'Animal',   color:'#8b5a2b'},
+  {id:'elephant',label:'Elephant',    cat:'Animal',   color:'#9090a8'},
+  {id:'connector',label:'You (Start)',cat:'Special',  color:'#44cc44'},
+  {id:'zombie',  label:'Zombie',      cat:'Special',  color:'#5599ff'},
+  {id:'lobster', label:'Lobster',     cat:'Special',  color:'#ff88cc'},
+  {id:'durian',  label:'Durian',      cat:'Special',  color:'#ddcc00'},
+  {id:'statue',  label:'GGUF Statue', cat:'Special',  color:'#aaaacc'},
+  {id:'erase',   label:'Erase',       cat:'Tool',     color:'#ff4444'},
+];
+
+function buildPalette(){
+  const container=document.getElementById('pal-items');
+  let lastCat='';
+  for(const item of PALETTE){
+    if(item.cat!==lastCat){
+      lastCat=item.cat;
+      const sec=document.createElement('div'); sec.className='pal-section'; sec.textContent=item.cat;
+      container.appendChild(sec);
+    }
+    const el=document.createElement('div');
+    el.className='pal-item'+(item.id===editorTool?' active':'');
+    el.dataset.tool=item.id;
+    el.innerHTML=`<div class="pal-swatch" style="background:${item.color}"></div>${item.label}`;
+    el.addEventListener('click',()=>selectTool(item.id));
+    container.appendChild(el);
+  }
+}
+
+function selectTool(id){
+  editorTool=id;
+  document.querySelectorAll('.pal-item').forEach(el=>el.classList.toggle('active',el.dataset.tool===id));
+}
+
+const TILE_IDS={grass:T_GRASS,path:T_PATH,plaza:T_PLAZA,water:T_WATER};
+const TEAM_COLORS={zombie:'#5599ff',lobster:'#ff88cc',durian:'#ddcc00'};
+const ANIMAL_TYPES=['pig','cow','cat','dog','sheep','monkey','elephant'];
+
+function editorPlace(tx,ty){
+  if(tx<0||ty<0||tx>=WORLD_W||ty>=WORLD_H) return;
+  const px=tx*TILE+TILE/2, py=ty*TILE+TILE/2;
+
+  if(editorTool==='erase'){
+    const t=getT(tx,ty);
+    if(t!==T_WATER) setT(tx,ty,T_GRASS);
+    for(let i=decors.length-1;i>=0;i--){
+      const d=decors[i];
+      if(d.type==='building'){
+        const bx=Math.floor(d.x/TILE),by=Math.floor(d.y/TILE),bw=Math.round(d.w/TILE),bh=Math.round(d.h/TILE);
+        if(tx>=bx&&tx<bx+bw&&ty>=by&&ty<by+bh){
+          for(let yy=by;yy<by+bh;yy++) for(let xx=bx;xx<bx+bw;xx++) setT(xx,yy,T_GRASS);
+          decors.splice(i,1);
+        }
+      } else if(Math.floor(d.x/TILE)===tx&&Math.floor(d.y/TILE)===ty) decors.splice(i,1);
+    }
+    editorEnt.animals=editorEnt.animals.filter(a=>!(Math.floor(a.x/TILE)===tx&&Math.floor(a.y/TILE)===ty));
+    editorEnt.teamMembers=editorEnt.teamMembers.filter(m=>!(Math.floor(m.x/TILE)===tx&&Math.floor(m.y/TILE)===ty));
+    if(editorEnt.playerStart&&Math.floor(editorEnt.playerStart.x/TILE)===tx&&Math.floor(editorEnt.playerStart.y/TILE)===ty) editorEnt.playerStart=null;
+    if(editorEnt.statuePos&&Math.floor(editorEnt.statuePos.x/TILE)===tx&&Math.floor(editorEnt.statuePos.y/TILE)===ty) editorEnt.statuePos=null;
+    return;
+  }
+
+  if(TILE_IDS[editorTool]!==undefined){ setT(tx,ty,TILE_IDS[editorTool]); return; }
+
+  if(editorTool==='tree'){
+    if(getT(tx,ty)!==T_GRASS) return;
+    decors.push({type:'tree',x:tx*TILE,y:ty*TILE});
+    setT(tx,ty,T_SOLID);
+    return;
+  }
+  if(editorTool==='flower'){
+    const fc=['#ff6699','#ffcc44','#aa66ff','#ff99aa','#88ffbb','#ffaa55'];
+    decors.push({type:'flower',x:px,y:py,c:fc[Math.floor(Math.random()*fc.length)]});
+    return;
+  }
+  if(editorTool==='building'){
+    const W=4,H=4;
+    if(tx+W>WORLD_W||ty+H>WORLD_H) return;
+    const roofs=['#b04030','#8a4028','#4a2870','#205060','#205040','#806020'];
+    const walls=['#e8d4a0','#d4c890','#e0cca8','#d8d0b8','#e4d8b0','#dcc8a0'];
+    const ri=Math.floor(Math.random()*roofs.length);
+    decors.push({type:'building',x:tx*TILE,y:ty*TILE,w:W*TILE,h:H*TILE,c:walls[ri],c2:roofs[ri]});
+    for(let yy=ty;yy<ty+H;yy++) for(let xx=tx;xx<tx+W;xx++) setT(xx,yy,T_SOLID);
+    return;
+  }
+  if(ANIMAL_TYPES.includes(editorTool)){ editorEnt.animals.push({type:editorTool,x:px,y:py}); return; }
+  if(editorTool==='connector'){ editorEnt.playerStart={x:px,y:py}; return; }
+  if(editorTool==='statue'){ editorEnt.statuePos={x:px,y:py}; return; }
+  if(['zombie','lobster','durian'].includes(editorTool)){
+    editorEnt.teamMembers=editorEnt.teamMembers.filter(m=>m.id!==editorTool);
+    editorEnt.teamMembers.push({id:editorTool,x:px,y:py});
+  }
+}
+
+function renderEditorOverlay(){
+  ctx2.save(); ctx2.translate(-cam.x,-cam.y);
+
+  // Entity markers
+  function marker(x,y,col,label){
+    ctx2.fillStyle=col+'99'; ctx2.beginPath(); ctx2.arc(x,y,18,0,Math.PI*2); ctx2.fill();
+    ctx2.strokeStyle=col; ctx2.lineWidth=2; ctx2.beginPath(); ctx2.arc(x,y,18,0,Math.PI*2); ctx2.stroke();
+    ctx2.fillStyle=col; ctx2.font='bold 8px monospace'; ctx2.textAlign='center'; ctx2.fillText(label,x,y+3);
+  }
+  if(editorEnt.playerStart) marker(editorEnt.playerStart.x,editorEnt.playerStart.y,'#44cc44','YOU');
+  if(editorEnt.statuePos) marker(editorEnt.statuePos.x,editorEnt.statuePos.y,'#aaaacc','STAT');
+  for(const m of editorEnt.teamMembers) marker(m.x,m.y,TEAM_COLORS[m.id]||'#fff',m.id.slice(0,3).toUpperCase());
+  for(const a of editorEnt.animals){
+    ctx2.fillStyle='rgba(255,255,180,0.35)'; ctx2.beginPath(); ctx2.arc(a.x,a.y,12,0,Math.PI*2); ctx2.fill();
+    ctx2.fillStyle='#ffd'; ctx2.font='bold 8px monospace'; ctx2.textAlign='center'; ctx2.fillText(a.type[0].toUpperCase(),a.x,a.y+3);
+  }
+
+  // Hover highlight
+  if(editorMouseTx>=0&&editorMouseTy>=0){
+    const hx=editorMouseTx*TILE, hy=editorMouseTy*TILE;
+    const item=PALETTE.find(p=>p.id===editorTool);
+    if(item){ ctx2.fillStyle=item.color+'44'; ctx2.fillRect(hx,hy,TILE,TILE); }
+    ctx2.strokeStyle='rgba(255,255,255,0.8)'; ctx2.lineWidth=1.5; ctx2.strokeRect(hx+1,hy+1,TILE-2,TILE-2);
+  }
+  ctx2.restore();
+
+  const info=document.getElementById('editor-cursor-info');
+  info.textContent=editorMouseTx>=0?`(${editorMouseTx}, ${editorMouseTy})`:'hover map to place';
+}
+
+function saveMapJSON(){
+  const data={
+    version:1, worldW:WORLD_W, worldH:WORLD_H,
+    tiles:Array.from(tiles),
+    decors:decors.map(d=>({...d})),
+    entities:{
+      playerStart: editorEnt.playerStart||{x:CX*TILE+16,y:CY*TILE+16},
+      statuePos:   editorEnt.statuePos||{x:CX*TILE,y:CY*TILE},
+      teamMembers: editorEnt.teamMembers.length?editorEnt.teamMembers:[
+        {id:'zombie',x:CX*TILE-110,y:CY*TILE+160},
+        {id:'lobster',x:CX*TILE+210,y:CY*TILE-130},
+        {id:'durian',x:CX*TILE-200,y:CY*TILE-170},
+      ],
+      animals: editorEnt.animals,
+    }
+  };
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+  a.download='animal-village-map.json'; a.click();
+}
+
+function applyMapJSON(data){
+  if(!data.tiles||!data.decors){alert('Invalid map file');return;}
+  for(let i=0;i<tiles.length;i++) tiles[i]=data.tiles[i]!==undefined?data.tiles[i]:T_GRASS;
+  decors.length=0; for(const d of data.decors) decors.push({...d});
+  if(data.entities){
+    editorEnt.playerStart=data.entities.playerStart||null;
+    editorEnt.statuePos=data.entities.statuePos||null;
+    editorEnt.teamMembers=[...(data.entities.teamMembers||[])];
+    editorEnt.animals=[...(data.entities.animals||[])];
+  }
+}
+
+function playEditorMap(){
+  const ps=editorEnt.playerStart||{x:CX*TILE+16,y:CY*TILE+16};
+  const sp=editorEnt.statuePos||{x:CX*TILE,y:CY*TILE};
+  const tms=editorEnt.teamMembers.length?editorEnt.teamMembers:[
+    {id:'zombie',x:CX*TILE-110,y:CY*TILE+160},
+    {id:'lobster',x:CX*TILE+210,y:CY*TILE-130},
+    {id:'durian',x:CX*TILE-200,y:CY*TILE-170},
+  ];
+  player=new Player(ps.x,ps.y);
+  statuePos={x:sp.x,y:sp.y};
+  teamMembers=tms.map(m=>new TeamMember(m.id,m.x,m.y,m.id[0].toUpperCase()+m.id.slice(1),TEAM_COLORS[m.id]||'#fff',m.id));
+  animals=editorEnt.animals.map(a=>new Animal(a.type,a.x,a.y));
+  editorMode=false;
+  document.getElementById('editor-panel').classList.add('hidden');
+  document.getElementById('editor-btn').classList.remove('active');
+  updateTeamHUD();
+  setHint('WASD / Arrows · move  |  E · interact');
+}
+
+function setupEditorUI(){
+  buildPalette();
+
+  document.getElementById('editor-btn').addEventListener('click',()=>{
+    editorMode=!editorMode;
+    document.getElementById('editor-panel').classList.toggle('hidden',!editorMode);
+    document.getElementById('editor-btn').classList.toggle('active',editorMode);
+    document.getElementById('settings-panel').classList.add('hidden');
+    if(editorMode){
+      editorEnt.playerStart={x:player.x,y:player.y};
+      editorEnt.statuePos={x:statuePos.x,y:statuePos.y};
+      editorEnt.teamMembers=teamMembers.map(m=>({id:m.id,x:m.x,y:m.y}));
+      editorEnt.animals=animals.map(a=>({type:a.type,x:a.x,y:a.y}));
+      setHint('WASD · pan  |  Click · place  |  Right-click · erase');
+    } else {
+      setHint('WASD / Arrows · move  |  E · interact');
+    }
+  });
+
+  canvas.addEventListener('mousemove',e=>{
+    if(!editorMode) return;
+    editorMouseTx=Math.floor((e.clientX+cam.x)/TILE);
+    editorMouseTy=Math.floor((e.clientY+cam.y)/TILE);
+    if(editorMouseDown) editorPlace(editorMouseTx,editorMouseTy);
+  });
+  canvas.addEventListener('mousedown',e=>{
+    if(!editorMode) return;
+    if(e.button===0){ editorMouseDown=true; editorPlace(editorMouseTx,editorMouseTy); }
+    else if(e.button===2){ const prev=editorTool; editorTool='erase'; editorPlace(editorMouseTx,editorMouseTy); editorTool=prev; }
+  });
+  canvas.addEventListener('mouseup',()=>{ editorMouseDown=false; });
+  canvas.addEventListener('mouseleave',()=>{ editorMouseDown=false; editorMouseTx=-1; editorMouseTy=-1; });
+  canvas.addEventListener('contextmenu',e=>{ if(editorMode) e.preventDefault(); });
+
+  document.getElementById('editor-save').addEventListener('click',saveMapJSON);
+  document.getElementById('editor-play').addEventListener('click',playEditorMap);
+  document.getElementById('editor-clear').addEventListener('click',()=>{
+    if(!confirm('Clear all tiles and objects?')) return;
+    tiles.fill(T_GRASS); decors.length=0;
+    editorEnt.playerStart=null; editorEnt.statuePos=null; editorEnt.teamMembers=[]; editorEnt.animals=[];
+  });
+  document.getElementById('editor-load-input').addEventListener('change',e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const r=new FileReader();
+    r.onload=ev=>{ try{ applyMapJSON(JSON.parse(ev.target.result)); }catch(err){ alert('Failed: '+err.message); } };
+    r.readAsText(file); e.target.value='';
+  });
 }
 
 // ─── SETUP ─────────────────────────────────────────────────────────────────────
@@ -855,6 +1135,7 @@ async function init(){
   loadCfg();
   setupInput();
   setupUI();
+  setupEditorUI();
   updateTeamHUD();
   setHint('WASD / Arrows · move  |  E · interact');
   lastT=performance.now();
