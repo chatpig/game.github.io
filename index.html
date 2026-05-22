@@ -75,6 +75,42 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 .ed-btn.green{border-color:#3a6a3a;color:#8aca8a}.ed-btn.green:hover{background:#162816}
 .ed-btn.red{border-color:#6a2a2a;color:#ca7a7a}.ed-btn.red:hover{background:#281616}
 #editor-cursor-info{font-size:9px;color:#445;text-align:center;padding:2px 0}
+
+/* palette new-item button */
+#pal-new-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:10px;color:#88cc88;border:1px dashed #3a5a3a;margin-bottom:4px;background:rgba(60,120,60,.08)}
+#pal-new-item:hover{background:rgba(60,120,60,.18);border-color:#5a8a5a}
+/* inline edit icon on palette rows */
+.pal-edit{display:none;margin-left:auto;background:none;border:none;color:#556;cursor:pointer;font-size:11px;padding:0 2px;line-height:1;flex-shrink:0;pointer-events:all}
+.pal-item:hover .pal-edit{display:block}
+.pal-edit:hover{color:#99aacc}
+/* item creator/editor modal */
+#item-creator{position:absolute;top:50%;left:200px;transform:translateY(-50%);width:260px;background:rgba(8,8,25,.98);border:2px solid #446;border-radius:10px;padding:14px;color:#eee;pointer-events:all;z-index:300}
+#item-creator h4{margin:0 0 10px;color:#88cc88;font-size:11px;letter-spacing:2px;text-transform:uppercase}
+#item-creator label{display:block;font-size:9px;color:#99a;margin:7px 0 2px;text-transform:uppercase;letter-spacing:1px}
+#item-creator input[type=text],#item-creator input[type=number]{width:100%;box-sizing:border-box;background:#0a0a1a;border:1px solid #445;border-radius:4px;color:#eef;padding:4px 7px;font-size:11px;font-family:monospace;outline:none}
+#item-creator input[type=color]{width:100%;height:26px;padding:1px 3px;box-sizing:border-box;background:#0a0a1a;border:1px solid #445;border-radius:4px;cursor:pointer}
+#item-creator input:focus{border-color:#667}
+.ic-row{display:flex;gap:8px}
+.ic-row>div{flex:1;min-width:0}
+#ic-btns{display:flex;gap:5px;margin-top:10px}
+#ic-btns button{flex:1;padding:5px 4px;border-radius:4px;border:1px solid #334;background:#0d1220;color:#99aacc;font-size:10px;cursor:pointer;font-family:monospace}
+#ic-btns button:hover{background:#162030}
+#ic-save{border-color:#3a6a3a!important;color:#8aca8a!important}#ic-save:hover{background:#162816!important}
+#ic-delete{border-color:#6a2a2a!important;color:#ca7a7a!important}#ic-delete:hover{background:#281616!important}
+#ic-id-hint{color:#445;font-size:8px;letter-spacing:0;text-transform:none;margin-left:4px;font-style:italic}
+/* pixel editor inside item creator */
+#ic-pixel-section{margin-top:8px}
+#ic-pixel-section>label{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+#ic-px-palette-row{display:flex;align-items:center;gap:4px;margin-bottom:4px}
+#ic-px-palette{display:flex;flex-wrap:wrap;gap:2px;flex:1}
+.ic-px-swatch{width:14px;height:14px;border-radius:2px;cursor:pointer;border:1px solid rgba(255,255,255,.12);flex-shrink:0}
+.ic-px-swatch:hover,.ic-px-swatch.selected{border-color:#88aaff;outline:1px solid #88aaff}
+#ic-px-active{width:18px;height:18px;border-radius:3px;border:2px solid #88aaff;flex-shrink:0;cursor:pointer}
+.ic-pxtool{background:#0d1220;border:1px solid #334;border-radius:3px;color:#99aacc;font-size:9px;cursor:pointer;padding:2px 4px;font-family:monospace}
+.ic-pxtool:hover{background:#162030}
+.ic-pxtool.on{background:#1a2840;border-color:#88aaff;color:#cce}
+#ic-pixel-canvas{display:block;cursor:crosshair;border:1px solid #334;border-radius:3px;image-rendering:pixelated;image-rendering:crisp-edges}
+#ic-px-divider{border:none;border-top:1px solid #223;margin:8px 0 0}
 </style>
 </head>
 <body>
@@ -125,6 +161,44 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 
   <div id="team-hud"></div>
   <div id="hint-bar">WASD / Arrows &#183; move &nbsp;&nbsp;|&nbsp;&nbsp; E &#183; interact</div>
+
+  <!-- Item Creator / Editor Modal -->
+  <div id="item-creator" class="hidden">
+    <h4 id="ic-title">New Item</h4>
+    <label>ID <span id="ic-id-hint">(auto-generated)</span></label>
+    <input id="ic-id" type="text" placeholder="my_custom_item" spellcheck="false">
+    <label>Label (display name)</label>
+    <input id="ic-label" type="text" placeholder="My Item">
+    <label>Category</label>
+    <input id="ic-cat" type="text" list="ic-cat-datalist" placeholder="Custom">
+    <datalist id="ic-cat-datalist"></datalist>
+    <div class="ic-row">
+      <div><label>Color 1</label><input id="ic-color" type="color" value="#8888aa"></div>
+      <div><label>Color 2</label><input id="ic-c2" type="color" value="#555577"></div>
+    </div>
+    <div class="ic-row" id="ic-size-row">
+      <div><label>Width (tiles)</label><input id="ic-w" type="number" min="1" max="8" value="1"></div>
+      <div><label>Height (tiles)</label><input id="ic-h" type="number" min="1" max="8" value="1"></div>
+    </div>
+    <!-- pixel art editor (custom items only) -->
+    <hr id="ic-px-divider">
+    <div id="ic-pixel-section">
+      <label>Pixel Art (16&#xD7;16) <span style="display:flex;gap:3px">
+        <button type="button" class="ic-pxtool" id="ic-px-eraser">&#9003; Erase</button>
+        <button type="button" class="ic-pxtool" id="ic-px-clear">CLR</button>
+      </span></label>
+      <div id="ic-px-palette-row">
+        <div id="ic-px-palette"></div>
+        <div id="ic-px-active" title="Current color"></div>
+      </div>
+      <canvas id="ic-pixel-canvas" width="224" height="224"></canvas>
+    </div>
+    <div id="ic-btns">
+      <button id="ic-save">&#10003; Save</button>
+      <button id="ic-delete" class="hidden">&#128465; Delete</button>
+      <button id="ic-cancel">&#x2715; Cancel</button>
+    </div>
+  </div>
 </div>
 <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 <script>
@@ -450,6 +524,8 @@ function drawDecor(d){
     drawSFDecor(d);
   } else if(OFFICE_TYPES.includes(d.type)){
     drawOfficeDecor(d);
+  } else if(customPalette.some(p=>p.id===d.type)){
+    drawCustomDecor(d);
   }
 }
 
@@ -823,6 +899,36 @@ function drawOfficeDecor(d){
     ctx2.fillStyle='#3a8f3a'; ctx2.fillRect(x+8,y+7,6,14); ctx2.fillRect(x+17,y+5,7,16); ctx2.fillRect(x+12,y+13,12,9);
     ctx2.fillStyle='#9a4f24'; ctx2.fillRect(x+9,y+24,15,12);
     ctx2.fillStyle='#6a3418'; ctx2.fillRect(x+7,y+22,19,4);
+  }
+}
+
+function drawCustomDecor(d){
+  const x=d.x,y=d.y,w=d.w||TILE,h=d.h||TILE;
+  if(d.pixels&&d.pixels.length===IC_PX_GRID*IC_PX_GRID){
+    const pw=w/IC_PX_GRID, ph=h/IC_PX_GRID;
+    ctx2.save(); ctx2.imageSmoothingEnabled=false;
+    for(let row=0;row<IC_PX_GRID;row++){
+      for(let col=0;col<IC_PX_GRID;col++){
+        const pix=d.pixels[row*IC_PX_GRID+col];
+        if(pix){ctx2.fillStyle=pix; ctx2.fillRect(x+col*pw,y+row*ph,Math.ceil(pw),Math.ceil(ph));}
+      }
+    }
+    ctx2.restore();
+    return;
+  }
+  // fallback: coloured block with label
+  const c=d.c||'#8888aa',c2=d.c2||'#555577';
+  ctx2.fillStyle='rgba(0,0,0,0.18)'; ctx2.fillRect(x+4,y+h-3,w-6,5);
+  ctx2.fillStyle=c; ctx2.fillRect(x+2,y+2,w-4,h-8);
+  const bandH=Math.max(5,Math.floor(h*0.2));
+  ctx2.fillStyle=c2; ctx2.fillRect(x+2,y+2,w-4,bandH);
+  ctx2.fillStyle='rgba(255,255,255,0.13)'; ctx2.fillRect(x+2,y+2,w-4,3);
+  const lbl=(d._label||d.type||'').replace(/_/g,' ');
+  if(lbl&&w>=TILE){
+    ctx2.fillStyle='rgba(0,0,0,0.55)';
+    const fs=Math.max(5,Math.min(8,Math.floor(w/Math.max(lbl.length,1)*1.1)));
+    ctx2.font=`bold ${fs}px monospace`; ctx2.textAlign='center';
+    ctx2.fillText(lbl.length>12?lbl.slice(0,12):lbl, x+w/2, y+h/2+3);
   }
 }
 
@@ -1466,6 +1572,8 @@ const ThreeView=(()=>{
       addSF3D(d,x,z);
     } else if(OFFICE_TYPES.includes(d.type)){
       addOffice3D(d,x,z);
+    } else if(customPalette.some(p=>p.id===d.type)){
+      addCustom3D(d,x,z);
     }
   }
   function addHK3D(d,x,z){
@@ -1814,6 +1922,29 @@ const ThreeView=(()=>{
       addBox(worldGroup,x+w*.5,z+dep*.66,.22,.08,.16,'#48a048',.72);
     }
   }
+  function addCustom3D(d,x,z){
+    const w=sx(d.w||TILE),dep=sy(d.h||TILE),c=cssHex(d.c||'#8888aa'),c2=cssHex(d.c2||'#555577');
+    addBox(worldGroup,x+w/2,z+dep/2,w*.94,dep*.94,.06,c,.02);
+    if(d.pixels&&d.pixels.length===IC_PX_GRID*IC_PX_GRID){
+      const tex=makeCanvasTexture((ctx,size)=>{
+        ctx.clearRect(0,0,size,size);
+        const ps=size/IC_PX_GRID;
+        for(let row=0;row<IC_PX_GRID;row++){
+          for(let col=0;col<IC_PX_GRID;col++){
+            const pix=d.pixels[row*IC_PX_GRID+col];
+            if(pix){ctx.fillStyle=pix; ctx.fillRect(col*ps,row*ps,Math.ceil(ps),Math.ceil(ps));}
+          }
+        }
+      },64);
+      const pMat=new THREE.MeshBasicMaterial({map:tex,transparent:true,alphaTest:.04,side:THREE.DoubleSide});
+      const pMesh=new THREE.Mesh(new THREE.PlaneGeometry(w*.92,dep*.92),pMat);
+      pMesh.rotation.x=-Math.PI/2; pMesh.position.set(x+w/2,.1,z+dep/2);
+      worldGroup.add(pMesh);
+    } else {
+      addBox(worldGroup,x+w/2,z+dep/2,w*.94,dep*.94,.32,c,.06);
+      addBox(worldGroup,x+w/2,z+dep/2,w*.94,dep*.94,.06,c2,.36);
+    }
+  }
   function addSprite(key,obj,w,h,yOff=0){
     const s=new THREE.Sprite(spriteMats[key]);
     s.scale.set(w,h,1);
@@ -1926,7 +2057,7 @@ const ThreeView=(()=>{
     clearGroup(editorGroup);
     if(!editorMode) return;
     if(editorMouseTx>=0&&editorMouseTy>=0){
-      const item=PALETTE.find(p=>p.id===editorTool), col=item?item.color:'#ffffff';
+      const item=PALETTE.find(p=>p.id===editorTool)||customPalette.find(p=>p.id===editorTool), col=item?(item.color||item.c||'#ffffff'):'#ffffff';
       addBox(editorGroup,editorMouseTx-HALF_W+.5,editorMouseTy-HALF_H+.5,.96,.96,.08,col,.08);
     }
   }
@@ -2064,6 +2195,19 @@ let editorTool='grass';
 
 const editorEnt={playerStart:null,statuePos:null,teamMembers:[],animals:[]};
 
+let paletteOverrides={};   // {itemId:{label?,cat?,color?,c?,c2?}}  – overrides for built-in items
+let customPalette=[];       // [{id,label,cat,color,c,c2,w,h,pixels?}]  – user-created items
+let icEditingId=null;       // id of item being edited in modal (null = new)
+let icIsBuiltin=false;      // true when editing a built-in palette entry
+let icIdAutoGen=true;       // auto-fill id from label while user hasn't typed manually
+
+// pixel editor
+const IC_PX_GRID=16, IC_PX_CELL=14;
+const IC_PX_PRESETS=['#ff2244','#ff8800','#ffee11','#44cc44','#2288ff','#cc44cc','#ffffff','#aaaaaa','#555555','#111111','#8b4513','#2a78b5'];
+let icPixels=new Array(IC_PX_GRID*IC_PX_GRID).fill('');
+let icPxColor='#ff2244';
+let icPxErasing=false;
+
 const PALETTE=[
   {id:'grass',        label:'Grass/Park',   cat:'Terrain',    color:'#4a7a36'},
   {id:'path',         label:'Road',         cat:'Terrain',    color:'#484858'},
@@ -2175,25 +2319,221 @@ const PALETTE=[
 
 function buildPalette(){
   const container=document.getElementById('pal-items');
-  let lastCat='';
-  for(const item of PALETTE){
-    if(item.cat!==lastCat){
-      lastCat=item.cat;
-      const sec=document.createElement('div'); sec.className='pal-section'; sec.textContent=item.cat;
-      container.appendChild(sec);
+  container.innerHTML='';
+
+  // "New Item" button
+  const newBtn=document.createElement('div');
+  newBtn.id='pal-new-item';
+  newBtn.innerHTML='&#43; New Item';
+  newBtn.addEventListener('click',()=>openItemEditor(null,false));
+  container.appendChild(newBtn);
+
+  // Merge built-in (with overrides applied) and custom items, grouped by category
+  const builtinEffective=PALETTE.map(item=>{
+    const ov=paletteOverrides[item.id]||{};
+    return {...item,...ov,_isBuiltin:true};
+  });
+  const catMap=new Map();
+  const catOrder=[];
+  for(const item of builtinEffective){
+    if(!catMap.has(item.cat)){ catMap.set(item.cat,[]); catOrder.push(item.cat); }
+    catMap.get(item.cat).push(item);
+  }
+  for(const item of customPalette){
+    const entry={...item,_isBuiltin:false};
+    if(!catMap.has(item.cat)){ catMap.set(item.cat,[]); catOrder.push(item.cat); }
+    catMap.get(item.cat).push(entry);
+  }
+
+  for(const cat of catOrder){
+    const sec=document.createElement('div'); sec.className='pal-section'; sec.textContent=cat;
+    container.appendChild(sec);
+    for(const item of catMap.get(cat)){
+      const el=document.createElement('div');
+      el.className='pal-item'+(item.id===editorTool?' active':'');
+      el.dataset.tool=item.id;
+      el.style.cssText='display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:11px;color:#aab;border:1px solid transparent;';
+      el.innerHTML=`<div class="pal-swatch" style="background:${item.color||item.c||'#888'}"></div><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.label}</span><button class="pal-edit" title="Edit item">&#9998;</button>`;
+      const capturedItem=item;
+      el.querySelector('.pal-edit').addEventListener('click',e=>{
+        e.stopPropagation();
+        openItemEditor(capturedItem.id,capturedItem._isBuiltin);
+      });
+      el.addEventListener('click',e=>{
+        if(e.target.closest('.pal-edit')) return;
+        selectTool(capturedItem.id);
+      });
+      container.appendChild(el);
     }
-    const el=document.createElement('div');
-    el.className='pal-item'+(item.id===editorTool?' active':'');
-    el.dataset.tool=item.id;
-    el.innerHTML=`<div class="pal-swatch" style="background:${item.color}"></div>${item.label}`;
-    el.addEventListener('click',()=>selectTool(item.id));
-    container.appendChild(el);
   }
 }
 
 function selectTool(id){
   editorTool=id;
   document.querySelectorAll('.pal-item').forEach(el=>el.classList.toggle('active',el.dataset.tool===id));
+}
+
+function labelToId(s){
+  return s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+}
+
+function getSpecForId(id){
+  const maps=[OFFICE_SPECS,SF_SPECS,NYC_SPECS,JAPAN_SPECS,BRITISH_SPECS,HK_SPECS];
+  for(const m of maps) if(m[id]) return m[id];
+  return null;
+}
+
+function openItemEditor(id,isBuiltin){
+  icEditingId=id; icIsBuiltin=!!isBuiltin; icIdAutoGen=true;
+  const modal=document.getElementById('item-creator');
+  const delBtn=document.getElementById('ic-delete');
+  const sizeRow=document.getElementById('ic-size-row');
+  const idInput=document.getElementById('ic-id');
+  const idHint=document.getElementById('ic-id-hint');
+
+  // Populate category datalist
+  const cats=[...new Set([...PALETTE.map(p=>p.cat),...customPalette.map(p=>p.cat)])];
+  document.getElementById('ic-cat-datalist').innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
+
+  const pxSection=document.getElementById('ic-pixel-section');
+  const pxDivider=document.getElementById('ic-px-divider');
+
+  if(id===null){
+    document.getElementById('ic-title').textContent='New Item';
+    idInput.value=''; idInput.readOnly=false; idHint.textContent='(auto-generated)';
+    document.getElementById('ic-label').value='';
+    document.getElementById('ic-cat').value='Custom';
+    document.getElementById('ic-color').value='#8888aa';
+    document.getElementById('ic-c2').value='#555577';
+    document.getElementById('ic-w').value='1';
+    document.getElementById('ic-h').value='1';
+    delBtn.classList.add('hidden'); sizeRow.style.display='';
+    icPixels=new Array(IC_PX_GRID*IC_PX_GRID).fill('');
+    icPxErasing=false;
+    pxSection.style.display=''; pxDivider.style.display='';
+    buildPixelPalette(); renderPixelCanvas();
+  } else if(isBuiltin){
+    const base=PALETTE.find(p=>p.id===id)||{id,label:id,cat:'',color:'#888'};
+    const ov=paletteOverrides[id]||{};
+    const spec=getSpecForId(id);
+    document.getElementById('ic-title').textContent='Edit Item';
+    idInput.value=id; idInput.readOnly=true; idHint.textContent='(built-in)';
+    document.getElementById('ic-label').value=ov.label||base.label;
+    document.getElementById('ic-cat').value=ov.cat||base.cat;
+    document.getElementById('ic-color').value=ov.c||ov.color||(spec?spec.c:base.color)||'#888888';
+    document.getElementById('ic-c2').value=ov.c2||(spec?spec.c2:'')||'#444444';
+    delBtn.classList.add('hidden');
+    sizeRow.style.display='none';
+    pxSection.style.display='none'; pxDivider.style.display='none';
+  } else {
+    const item=customPalette.find(p=>p.id===id);
+    if(!item) return;
+    document.getElementById('ic-title').textContent='Edit Custom Item';
+    idInput.value=id; idInput.readOnly=true; idHint.textContent='(cannot change id)';
+    document.getElementById('ic-label').value=item.label;
+    document.getElementById('ic-cat').value=item.cat;
+    document.getElementById('ic-color').value=item.color||item.c||'#8888aa';
+    document.getElementById('ic-c2').value=item.c2||'#555577';
+    document.getElementById('ic-w').value=Math.max(1,Math.round((item.w||TILE)/TILE));
+    document.getElementById('ic-h').value=Math.max(1,Math.round((item.h||TILE)/TILE));
+    delBtn.classList.remove('hidden'); sizeRow.style.display='';
+    icPixels=Array.isArray(item.pixels)&&item.pixels.length===IC_PX_GRID*IC_PX_GRID
+      ?[...item.pixels]:new Array(IC_PX_GRID*IC_PX_GRID).fill('');
+    icPxErasing=false;
+    pxSection.style.display=''; pxDivider.style.display='';
+    buildPixelPalette(); renderPixelCanvas();
+  }
+  modal.classList.remove('hidden');
+}
+
+function closeItemEditor(){
+  document.getElementById('item-creator').classList.add('hidden');
+}
+
+function saveFromItemModal(){
+  const rawId=document.getElementById('ic-id').value.trim();
+  const label=document.getElementById('ic-label').value.trim();
+  const cat=document.getElementById('ic-cat').value.trim()||'Custom';
+  const color=document.getElementById('ic-color').value;
+  const c2=document.getElementById('ic-c2').value;
+  const w=Math.max(1,parseInt(document.getElementById('ic-w').value)||1);
+  const h=Math.max(1,parseInt(document.getElementById('ic-h').value)||1);
+  if(!label){alert('Label is required');return;}
+
+  const pixels=[...icPixels]; // snapshot current pixel art
+  if(icEditingId===null){
+    const id=rawId||labelToId(label)||('custom_'+Date.now());
+    if(!id){alert('Could not generate an ID from label');return;}
+    if(/[^a-z0-9_]/.test(id)){alert('ID must contain only lowercase letters, numbers, and underscores');return;}
+    if(PALETTE.some(p=>p.id===id)||customPalette.some(p=>p.id===id)){alert('ID "'+id+'" already exists. Choose a different label or ID.');return;}
+    customPalette.push({id,label,cat,color,c:color,c2,w,h,pixels});
+    closeItemEditor(); buildPalette(); selectTool(id);
+  } else if(icIsBuiltin){
+    paletteOverrides[icEditingId]={label,cat,color,c:color,c2};
+    closeItemEditor(); buildPalette(); selectTool(icEditingId);
+  } else {
+    const idx=customPalette.findIndex(p=>p.id===icEditingId);
+    if(idx>=0) customPalette[idx]={id:icEditingId,label,cat,color,c:color,c2,w,h,pixels};
+    closeItemEditor(); buildPalette(); selectTool(icEditingId);
+  }
+}
+
+function deleteCustomItem(){
+  if(!icEditingId||icIsBuiltin) return;
+  const item=customPalette.find(p=>p.id===icEditingId);
+  if(!item||!confirm(`Delete "${item.label}"? Already-placed instances won't be removed.`)) return;
+  customPalette=customPalette.filter(p=>p.id!==icEditingId);
+  if(editorTool===icEditingId) selectTool('grass');
+  closeItemEditor(); buildPalette();
+}
+
+function renderPixelCanvas(){
+  const canvas=document.getElementById('ic-pixel-canvas');
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const C=IC_PX_CELL, N=IC_PX_GRID;
+  // checkerboard background for transparent cells
+  for(let row=0;row<N;row++){
+    for(let col=0;col<N;col++){
+      ctx.fillStyle=(row+col)%2===0?'#2a2a3a':'#1e1e2e';
+      ctx.fillRect(col*C,row*C,C,C);
+      const pix=icPixels[row*N+col];
+      if(pix){ctx.fillStyle=pix; ctx.fillRect(col*C,row*C,C,C);}
+    }
+  }
+  // grid lines
+  ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=.5;
+  for(let i=0;i<=N;i++){
+    ctx.beginPath(); ctx.moveTo(i*C,0); ctx.lineTo(i*C,N*C); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*C); ctx.lineTo(N*C,i*C); ctx.stroke();
+  }
+}
+
+function buildPixelPalette(){
+  const container=document.getElementById('ic-px-palette');
+  if(!container) return;
+  container.innerHTML='';
+  const c1=document.getElementById('ic-color').value;
+  const c2=document.getElementById('ic-c2').value;
+  const colors=[c1,c2,...IC_PX_PRESETS];
+  colors.forEach(col=>{
+    const sw=document.createElement('div');
+    sw.className='ic-px-swatch'+(col===icPxColor?' selected':'');
+    sw.style.background=col; sw.title=col;
+    sw.addEventListener('click',()=>{
+      icPxColor=col; icPxErasing=false;
+      document.getElementById('ic-px-eraser').classList.remove('on');
+      document.getElementById('ic-px-active').style.background=col;
+      document.querySelectorAll('.ic-px-swatch').forEach(s=>s.classList.toggle('selected',s.style.background===col||s.title===col));
+    });
+    container.appendChild(sw);
+  });
+  document.getElementById('ic-px-active').style.background=icPxColor;
+}
+
+function placementColors(id,spec){
+  const ov=paletteOverrides[id]||{};
+  return {c:ov.c||(spec&&spec.c)||'#888888',c2:ov.c2||(spec&&spec.c2)||'#444444'};
 }
 
 const TILE_IDS={grass:T_GRASS,path:T_PATH,plaza:T_PLAZA,water:T_WATER};
@@ -2309,7 +2649,7 @@ function editorPlace(tx,ty){
           for(let yy=by;yy<by+bh;yy++) for(let xx=bx;xx<bx+bw;xx++) setT(xx,yy,T_GRASS);
           decors.splice(i,1);
         }
-      } else if(OFFICE_TYPES.includes(d.type)||SF_TYPES.includes(d.type)||NYC_TYPES.includes(d.type)||JAPAN_TYPES.includes(d.type)||BRITISH_TYPES.includes(d.type)||HK_TYPES.includes(d.type)){
+      } else if(OFFICE_TYPES.includes(d.type)||SF_TYPES.includes(d.type)||NYC_TYPES.includes(d.type)||JAPAN_TYPES.includes(d.type)||BRITISH_TYPES.includes(d.type)||HK_TYPES.includes(d.type)||customPalette.some(cp=>cp.id===d.type)){
         const bx=Math.floor(d.x/TILE),by=Math.floor(d.y/TILE),bw=Math.max(1,Math.round((d.w||TILE)/TILE)),bh=Math.max(1,Math.round((d.h||TILE)/TILE));
         if(tx>=bx&&tx<bx+bw&&ty>=by&&ty<by+bh) decors.splice(i,1);
       } else if(Math.floor(d.x/TILE)===tx&&Math.floor(d.y/TILE)===ty){
@@ -2381,39 +2721,42 @@ function editorPlace(tx,ty){
     return;
   }
   if(OFFICE_TYPES.includes(editorTool)){
-    const s=OFFICE_SPECS[editorTool];
+    const s=OFFICE_SPECS[editorTool]; const {c,c2}=placementColors(editorTool,s);
     if(tx+s.w>WORLD_W||ty+s.h>WORLD_H) return;
-    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c:s.c,c2:s.c2});
-    return;
+    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c,c2}); return;
   }
   if(SF_TYPES.includes(editorTool)){
-    const s=SF_SPECS[editorTool];
+    const s=SF_SPECS[editorTool]; const {c,c2}=placementColors(editorTool,s);
     if(tx+s.w>WORLD_W||ty+s.h>WORLD_H) return;
-    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c:s.c,c2:s.c2});
-    return;
+    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c,c2}); return;
   }
   if(NYC_TYPES.includes(editorTool)){
-    const s=NYC_SPECS[editorTool];
+    const s=NYC_SPECS[editorTool]; const {c,c2}=placementColors(editorTool,s);
     if(tx+s.w>WORLD_W||ty+s.h>WORLD_H) return;
-    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c:s.c,c2:s.c2});
-    return;
+    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c,c2}); return;
   }
   if(JAPAN_TYPES.includes(editorTool)){
-    const s=JAPAN_SPECS[editorTool];
+    const s=JAPAN_SPECS[editorTool]; const {c,c2}=placementColors(editorTool,s);
     if(tx+s.w>WORLD_W||ty+s.h>WORLD_H) return;
-    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c:s.c,c2:s.c2});
-    return;
+    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c,c2}); return;
   }
   if(BRITISH_TYPES.includes(editorTool)){
-    const s=BRITISH_SPECS[editorTool];
+    const s=BRITISH_SPECS[editorTool]; const {c,c2}=placementColors(editorTool,s);
     if(tx+s.w>WORLD_W||ty+s.h>WORLD_H) return;
-    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c:s.c,c2:s.c2});
-    return;
+    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c,c2}); return;
   }
   if(HK_TYPES.includes(editorTool)){
-    const s=HK_SPECS[editorTool];
+    const s=HK_SPECS[editorTool]; const {c,c2}=placementColors(editorTool,s);
     if(tx+s.w>WORLD_W||ty+s.h>WORLD_H) return;
-    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c:s.c,c2:s.c2});
+    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c,c2}); return;
+  }
+  const customItem=customPalette.find(cp=>cp.id===editorTool);
+  if(customItem){
+    const w=customItem.w||1,h=customItem.h||1;
+    if(tx+w>WORLD_W||ty+h>WORLD_H) return;
+    const entry={type:editorTool,x:tx*TILE,y:ty*TILE,w:w*TILE,h:h*TILE,c:customItem.c||customItem.color||'#8888aa',c2:customItem.c2||'#555577',_label:customItem.label};
+    if(Array.isArray(customItem.pixels)) entry.pixels=[...customItem.pixels];
+    decors.push(entry);
     return;
   }
   if(ANIMAL_TYPES.includes(editorTool)){ editorEnt.animals.push({type:editorTool,x:px,y:py}); return; }
@@ -2445,8 +2788,8 @@ function renderEditorOverlay(){
   // Hover highlight
   if(editorMouseTx>=0&&editorMouseTy>=0){
     const hx=editorMouseTx*TILE, hy=editorMouseTy*TILE;
-    const item=PALETTE.find(p=>p.id===editorTool);
-    if(item){ ctx2.fillStyle=item.color+'44'; ctx2.fillRect(hx,hy,TILE,TILE); }
+    const item=PALETTE.find(p=>p.id===editorTool)||customPalette.find(p=>p.id===editorTool);
+    if(item){ ctx2.fillStyle=(item.color||item.c||'#ffffff')+'44'; ctx2.fillRect(hx,hy,TILE,TILE); }
     ctx2.strokeStyle='rgba(255,255,255,0.8)'; ctx2.lineWidth=1.5; ctx2.strokeRect(hx+1,hy+1,TILE-2,TILE-2);
   }
   ctx2.restore();
@@ -2461,7 +2804,7 @@ function saveMapJSON(){
     return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
   })();
   const data={
-    version:1, worldW:WORLD_W, worldH:WORLD_H,
+    version:2, worldW:WORLD_W, worldH:WORLD_H,
     tiles:Array.from(tiles),
     decors:decors.map(d=>({...d})),
     entities:{
@@ -2473,7 +2816,9 @@ function saveMapJSON(){
         {id:'durian',x:CX*TILE-200,y:CY*TILE-170},
       ],
       animals: editorEnt.animals,
-    }
+    },
+    customPalette: JSON.parse(JSON.stringify(customPalette)),
+    paletteOverrides: JSON.parse(JSON.stringify(paletteOverrides)),
   };
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
@@ -2490,6 +2835,9 @@ function applyMapJSON(data){
     editorEnt.teamMembers=[...(data.entities.teamMembers||[])];
     editorEnt.animals=[...(data.entities.animals||[])];
   }
+  customPalette=Array.isArray(data.customPalette)?JSON.parse(JSON.stringify(data.customPalette)):[];
+  paletteOverrides=(data.paletteOverrides&&typeof data.paletteOverrides==='object')?JSON.parse(JSON.stringify(data.paletteOverrides)):{};
+  buildPalette();
   ThreeView.markDirty();
 }
 
@@ -2568,6 +2916,65 @@ function setupEditorUI(){
     else if(e.button===2){ setEditorMouseFromEvent(e); const prev=editorTool; editorTool='erase'; editorPlace(editorMouseTx,editorMouseTy); editorTool=prev; ThreeView.markDirty(); }
   });
   document.addEventListener('contextmenu',e=>{ if(editorMode&&mode3D&&!e.target.closest('#ui')) e.preventDefault(); });
+
+  // Item creator modal handlers
+  document.getElementById('ic-save').addEventListener('click',saveFromItemModal);
+  document.getElementById('ic-delete').addEventListener('click',deleteCustomItem);
+  document.getElementById('ic-cancel').addEventListener('click',closeItemEditor);
+  document.getElementById('ic-label').addEventListener('input',e=>{
+    if(icEditingId===null&&icIdAutoGen)
+      document.getElementById('ic-id').value=labelToId(e.target.value);
+  });
+  document.getElementById('ic-id').addEventListener('input',()=>{ icIdAutoGen=false; });
+  // Rebuild palette swatches when item colors change
+  document.getElementById('ic-color').addEventListener('input',()=>buildPixelPalette());
+  document.getElementById('ic-c2').addEventListener('input',()=>buildPixelPalette());
+
+  // Pixel editor
+  const pxCanvas=document.getElementById('ic-pixel-canvas');
+  const pxCtx=pxCanvas.getContext('2d');
+  let pxPainting=false, pxRightBtn=false;
+  function pxCell(e){
+    const r=pxCanvas.getBoundingClientRect();
+    const scX=pxCanvas.width/r.width, scY=pxCanvas.height/r.height;
+    return {
+      col:Math.floor((e.clientX-r.left)*scX/IC_PX_CELL),
+      row:Math.floor((e.clientY-r.top)*scY/IC_PX_CELL)
+    };
+  }
+  function pxPaint(e){
+    const {col,row}=pxCell(e);
+    if(col<0||row<0||col>=IC_PX_GRID||row>=IC_PX_GRID) return;
+    icPixels[row*IC_PX_GRID+col]=(pxRightBtn||icPxErasing)?'':icPxColor;
+    renderPixelCanvas();
+  }
+  pxCanvas.addEventListener('mousedown',e=>{
+    e.preventDefault(); pxPainting=true; pxRightBtn=e.button===2; pxPaint(e);
+  });
+  pxCanvas.addEventListener('mousemove',e=>{
+    if(!pxPainting) return;
+    pxRightBtn=(e.buttons&2)!==0; pxPaint(e);
+  });
+  pxCanvas.addEventListener('mouseup',()=>{ pxPainting=false; });
+  pxCanvas.addEventListener('mouseleave',()=>{ pxPainting=false; });
+  pxCanvas.addEventListener('contextmenu',e=>e.preventDefault());
+  // Touch support
+  function pxTouchPaint(e){
+    e.preventDefault();
+    const t=e.touches[0]; if(!t) return;
+    pxPaint(t); // touches use clientX/clientY like mouse
+  }
+  pxCanvas.addEventListener('touchstart',e=>{ pxPainting=true; pxRightBtn=false; pxTouchPaint(e); },{passive:false});
+  pxCanvas.addEventListener('touchmove',pxTouchPaint,{passive:false});
+  pxCanvas.addEventListener('touchend',()=>{ pxPainting=false; });
+
+  document.getElementById('ic-px-eraser').addEventListener('click',()=>{
+    icPxErasing=!icPxErasing;
+    document.getElementById('ic-px-eraser').classList.toggle('on',icPxErasing);
+  });
+  document.getElementById('ic-px-clear').addEventListener('click',()=>{
+    icPixels.fill(''); renderPixelCanvas();
+  });
 
   document.getElementById('editor-save').addEventListener('click',saveMapJSON);
   document.getElementById('editor-play').addEventListener('click',playEditorMap);
