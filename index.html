@@ -62,8 +62,21 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 #editor-btn:hover{background:rgba(80,80,80,.9)}
 #editor-btn.active{background:rgba(40,80,40,.9);border-color:#4a9a4a}
 
-#editor-panel{position:absolute;top:0;left:0;width:180px;height:100%;background:rgba(8,8,22,.96);border-right:2px solid #334;padding:10px 8px;box-sizing:border-box;overflow-y:auto;pointer-events:all;z-index:49;display:flex;flex-direction:column;gap:2px}
-#editor-panel h3{margin:0 0 6px;color:#88cc88;font-size:11px;letter-spacing:2px;text-transform:uppercase}
+#editor-panel{position:absolute;top:0;left:0;width:210px;height:100%;background:rgba(8,8,22,.96);border-right:2px solid #334;padding:10px 8px;box-sizing:border-box;overflow-y:auto;pointer-events:all;z-index:49;display:flex;flex-direction:column;gap:2px;transition:transform .18s ease}
+#editor-panel.collapsed{transform:translateX(-210px)}
+.editor-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+#editor-panel h3{margin:0;color:#88cc88;font-size:11px;letter-spacing:2px;text-transform:uppercase}
+#editor-collapse{width:26px;height:24px;border-radius:4px;border:1px solid #334;background:#0d1220;color:#99aacc;cursor:pointer;font-size:13px;font-family:monospace;flex-shrink:0}
+#editor-collapse:hover{background:#162030;color:#bbddff}
+#editor-tab{position:absolute;left:0;top:72px;width:24px;height:96px;background:rgba(8,8,22,.96);border:2px solid #334;border-left:none;border-radius:0 8px 8px 0;color:#88cc88;pointer-events:all;z-index:48;cursor:pointer;font-size:11px;font-family:monospace;writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:1px;display:flex;align-items:center;justify-content:center}
+#editor-tab:hover{background:#162030}
+.map-creator{border-bottom:1px solid #223;border-top:1px solid #223;padding:7px 0;margin:2px 0 5px}
+.map-creator-title{font-size:9px;color:#88cc88;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.map-creator-row{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px}
+.map-creator label{display:block;font-size:8px;color:#667;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.map-creator input{width:100%;box-sizing:border-box;background:#0a0a1a;border:1px solid #334;border-radius:4px;color:#eef;padding:4px 5px;font-size:10px;font-family:monospace;outline:none}
+.map-creator input:focus{border-color:#667}
+.map-creator-note{font-size:8px;color:#556;line-height:1.3;margin-top:4px}
 .pal-section{font-size:9px;color:#556;text-transform:uppercase;letter-spacing:1px;margin:8px 0 2px;padding-top:6px;border-top:1px solid #223}
 .pal-item{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:11px;color:#aab;border:1px solid transparent}
 .pal-item:hover{background:rgba(255,255,255,.07);border-color:#334}
@@ -120,7 +133,19 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
   <button id="mode-btn" title="Toggle 3D Mode">3D</button>
   <button id="editor-btn" title="Map Editor">&#9783;</button>
   <div id="editor-panel" class="hidden">
-    <h3>&#9783; Map Editor</h3>
+    <div class="editor-head">
+      <h3>&#9783; Map Editor</h3>
+      <button id="editor-collapse" title="Collapse editor">&#9664;</button>
+    </div>
+    <div class="map-creator">
+      <div class="map-creator-title">New Map</div>
+      <div class="map-creator-row">
+        <div><label>World W</label><input id="map-world-w" type="number" min="16" max="200" value="80"></div>
+        <div><label>World H</label><input id="map-world-h" type="number" min="16" max="200" value="80"></div>
+      </div>
+      <button class="ed-btn green" id="map-new">&#10010; Create Blank Map</button>
+      <div class="map-creator-note">Drag palette items onto the map, or select one and click to place.</div>
+    </div>
     <div id="pal-items"></div>
     <div id="editor-actions">
       <div id="editor-cursor-info">hover map to place</div>
@@ -130,6 +155,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
       <button class="ed-btn red" id="editor-clear">&#128465; Clear All</button>
     </div>
   </div>
+  <button id="editor-tab" class="hidden" title="Expand editor">Editor</button>
   <div id="settings-panel" class="hidden">
     <h3>&#9881; Settings</h3>
     <label>API Endpoint</label>
@@ -203,9 +229,10 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 <script>
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const TILE = 32, WORLD_W = 80, WORLD_H = 80;
-const WPX = WORLD_W * TILE, HPX = WORLD_H * TILE;
-const CX = WORLD_W / 2, CY = WORLD_H / 2; // center tile coords
+const TILE = 32;
+let WORLD_W = 80, WORLD_H = 80;
+let WPX = WORLD_W * TILE, HPX = WORLD_H * TILE;
+let CX = WORLD_W / 2, CY = WORLD_H / 2; // center tile coords
 const SPRITE = 48, SPRITE_HALF = SPRITE * 0.75;
 
 const T_GRASS = 0, T_PATH = 1, T_PLAZA = 2, T_WATER = 3, T_SOLID = 4;
@@ -272,11 +299,27 @@ const Aud = (() => {
 })();
 
 // ─── WORLD ─────────────────────────────────────────────────────────────────────
-const tiles = new Uint8Array(WORLD_W * WORLD_H).fill(T_GRASS);
+let tiles = new Uint8Array(WORLD_W * WORLD_H).fill(T_GRASS);
 const decors = []; // {type,x,y,w?,h?,c?,c2?}
 
 function setT(tx,ty,t){ if(tx>=0&&ty>=0&&tx<WORLD_W&&ty<WORLD_H) tiles[ty*WORLD_W+tx]=t; }
 function getT(tx,ty){ if(tx<0||ty<0||tx>=WORLD_W||ty>=WORLD_H) return T_SOLID; return tiles[ty*WORLD_W+tx]; }
+
+function updateWorldMetrics(){
+  WPX=WORLD_W*TILE; HPX=WORLD_H*TILE;
+  CX=WORLD_W/2; CY=WORLD_H/2;
+}
+
+function resizeWorld(w,h,fill=T_GRASS){
+  WORLD_W=Math.max(16,Math.min(200,Math.floor(w)||80));
+  WORLD_H=Math.max(16,Math.min(200,Math.floor(h)||80));
+  updateWorldMetrics();
+  tiles=new Uint8Array(WORLD_W*WORLD_H).fill(fill);
+  cam.x=0; cam.y=0;
+  const ww=document.getElementById('map-world-w'), wh=document.getElementById('map-world-h');
+  if(ww) ww.value=WORLD_W;
+  if(wh) wh.value=WORLD_H;
+}
 
 function buildWorld(){
   // City layout: pavement default, road grid, parks, buildings
@@ -1403,7 +1446,7 @@ const ThreeView=(()=>{
   if(!window.THREE) return {init(){return false;},rebuild(){},render(){},setActive(){return false;},resize(){},tileFromClient(){return null;},markDirty(){}};
   let scene,camera,renderer,worldGroup,entityGroup,editorGroup,raycaster,groundPlane;
   let spriteMats={}, animalMats={}, ready=false;
-  const S=1/TILE, HALF_W=WORLD_W/2, HALF_H=WORLD_H/2;
+  const S=1/TILE;
   const tmpM=new THREE.Matrix4(), tmpV=new THREE.Vector3(), mouse=new THREE.Vector2();
 
   const matCache=new Map();
@@ -1411,8 +1454,8 @@ const ThreeView=(()=>{
     if(!matCache.has(color)) matCache.set(color,new THREE.MeshLambertMaterial({color}));
     return matCache.get(color);
   }
-  function wx(x){ return x*S-HALF_W; }
-  function wz(y){ return y*S-HALF_H; }
+  function wx(x){ return x*S-WORLD_W/2; }
+  function wz(y){ return y*S-WORLD_H/2; }
   function sx(w){ return w*S; }
   function sy(h){ return h*S; }
   function addBox(g,x,z,w,d,h,color,y=0){
@@ -1517,7 +1560,7 @@ const ThreeView=(()=>{
         const h=tid===T_WATER?.04:.08, mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,h,1),mat(tileColors[tid][parity]),count);
         let i=0;
         for(let y=0;y<WORLD_H;y++) for(let x=0;x<WORLD_W;x++) if(getT(x,y)===tid&&(x+y)%2===parity){
-          tmpM.makeTranslation(x-HALF_W+.5,-h/2,y-HALF_H+.5); mesh.setMatrixAt(i++,tmpM);
+          tmpM.makeTranslation(x-WORLD_W/2+.5,-h/2,y-WORLD_H/2+.5); mesh.setMatrixAt(i++,tmpM);
         }
         mesh.receiveShadow=true; worldGroup.add(mesh);
       }
@@ -2058,7 +2101,7 @@ const ThreeView=(()=>{
     if(!editorMode) return;
     if(editorMouseTx>=0&&editorMouseTy>=0){
       const item=PALETTE.find(p=>p.id===editorTool)||customPalette.find(p=>p.id===editorTool), col=item?(item.color||item.c||'#ffffff'):'#ffffff';
-      addBox(editorGroup,editorMouseTx-HALF_W+.5,editorMouseTy-HALF_H+.5,.96,.96,.08,col,.08);
+      addBox(editorGroup,editorMouseTx-WORLD_W/2+.5,editorMouseTy-WORLD_H/2+.5,.96,.96,.08,col,.08);
     }
   }
   function render(){
@@ -2093,7 +2136,7 @@ const ThreeView=(()=>{
     mouse.y=-((clientY-r.top)/r.height)*2+1;
     raycaster.setFromCamera(mouse,camera);
     if(!raycaster.ray.intersectPlane(groundPlane,tmpV)) return null;
-    return {tx:Math.floor(tmpV.x+HALF_W),ty:Math.floor(tmpV.z+HALF_H)};
+    return {tx:Math.floor(tmpV.x+WORLD_W/2),ty:Math.floor(tmpV.z+WORLD_H/2)};
   }
   return {init,rebuild,render,setActive,resize,tileFromClient,markDirty(){threeDirty=true;}};
 })();
@@ -2169,9 +2212,9 @@ function loop(ts){
   if(editorMode){
     const spd=220*dt;
     if(keys['a']||keys['arrowleft']) cam.x=Math.max(0,cam.x-spd);
-    if(keys['d']||keys['arrowright']) cam.x=Math.min(WPX-canvas.width,cam.x+spd);
+    if(keys['d']||keys['arrowright']) cam.x=Math.min(Math.max(0,WPX-canvas.width),cam.x+spd);
     if(keys['w']||keys['arrowup']) cam.y=Math.max(0,cam.y-spd);
-    if(keys['s']||keys['arrowdown']) cam.y=Math.min(HPX-canvas.height,cam.y+spd);
+    if(keys['s']||keys['arrowdown']) cam.y=Math.min(Math.max(0,HPX-canvas.height),cam.y+spd);
   } else if(!dialogOpen){
     player.update(dt);
     updateCam();
@@ -2191,6 +2234,7 @@ function loop(ts){
 
 // ─── MAP EDITOR ────────────────────────────────────────────────────────────────
 let editorMode=false, editorMouseDown=false, editorMouseTx=-1, editorMouseTy=-1;
+let editorCollapsed=false;
 let editorTool='grass';
 
 const editorEnt={playerStart:null,statuePos:null,teamMembers:[],animals:[]};
@@ -2352,6 +2396,7 @@ function buildPalette(){
       const el=document.createElement('div');
       el.className='pal-item'+(item.id===editorTool?' active':'');
       el.dataset.tool=item.id;
+      el.draggable=true;
       el.style.cssText='display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:11px;color:#aab;border:1px solid transparent;';
       el.innerHTML=`<div class="pal-swatch" style="background:${item.color||item.c||'#888'}"></div><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.label}</span><button class="pal-edit" title="Edit item">&#9998;</button>`;
       const capturedItem=item;
@@ -2362,6 +2407,11 @@ function buildPalette(){
       el.addEventListener('click',e=>{
         if(e.target.closest('.pal-edit')) return;
         selectTool(capturedItem.id);
+      });
+      el.addEventListener('dragstart',e=>{
+        selectTool(capturedItem.id);
+        e.dataTransfer.setData('text/plain',capturedItem.id);
+        e.dataTransfer.effectAllowed='copy';
       });
       container.appendChild(el);
     }
@@ -2798,6 +2848,25 @@ function renderEditorOverlay(){
   info.textContent=editorMouseTx>=0?`(${editorMouseTx}, ${editorMouseTy})`:'hover map to place';
 }
 
+function createBlankMapFromInputs(){
+  const w=parseInt(document.getElementById('map-world-w').value,10)||80;
+  const h=parseInt(document.getElementById('map-world-h').value,10)||80;
+  if(!confirm(`Create a new blank ${Math.max(16,Math.min(200,w))} x ${Math.max(16,Math.min(200,h))} map? Unsaved changes will be lost.`)) return;
+  resizeWorld(w,h,T_GRASS);
+  decors.length=0;
+  editorEnt.playerStart={x:CX*TILE+TILE/2,y:CY*TILE+TILE/2};
+  editorEnt.statuePos={x:CX*TILE,y:CY*TILE};
+  editorEnt.teamMembers=[];
+  editorEnt.animals=[];
+  player=new Player(editorEnt.playerStart.x,editorEnt.playerStart.y);
+  statuePos={...editorEnt.statuePos};
+  teamMembers=[]; animals=[];
+  updateTeamHUD();
+  updateCam();
+  ThreeView.markDirty();
+  setHint(`Blank ${WORLD_W} x ${WORLD_H} map created. Drag items from the editor or click to place.`,3000);
+}
+
 function saveMapJSON(){
   const stamp=(()=>{
     const d=new Date(), pad=n=>String(n).padStart(2,'0');
@@ -2810,11 +2879,7 @@ function saveMapJSON(){
     entities:{
       playerStart: editorEnt.playerStart||{x:CX*TILE+16,y:CY*TILE+16},
       statuePos:   editorEnt.statuePos||{x:CX*TILE,y:CY*TILE},
-      teamMembers: editorEnt.teamMembers.length?editorEnt.teamMembers:[
-        {id:'zombie',x:CX*TILE-110,y:CY*TILE+160},
-        {id:'lobster',x:CX*TILE+210,y:CY*TILE-130},
-        {id:'durian',x:CX*TILE-200,y:CY*TILE-170},
-      ],
+      teamMembers: editorEnt.teamMembers,
       animals: editorEnt.animals,
     },
     customPalette: JSON.parse(JSON.stringify(customPalette)),
@@ -2827,6 +2892,7 @@ function saveMapJSON(){
 
 function applyMapJSON(data){
   if(!data.tiles||!data.decors){alert('Invalid map file');return;}
+  resizeWorld(data.worldW||WORLD_W,data.worldH||WORLD_H,T_GRASS);
   for(let i=0;i<tiles.length;i++) tiles[i]=data.tiles[i]!==undefined?data.tiles[i]:T_GRASS;
   decors.length=0; for(const d of data.decors) decors.push({...d});
   if(data.entities){
@@ -2837,6 +2903,14 @@ function applyMapJSON(data){
   }
   customPalette=Array.isArray(data.customPalette)?JSON.parse(JSON.stringify(data.customPalette)):[];
   paletteOverrides=(data.paletteOverrides&&typeof data.paletteOverrides==='object')?JSON.parse(JSON.stringify(data.paletteOverrides)):{};
+  const ps=editorEnt.playerStart||{x:CX*TILE+TILE/2,y:CY*TILE+TILE/2};
+  const sp=editorEnt.statuePos||{x:CX*TILE,y:CY*TILE};
+  player=new Player(ps.x,ps.y);
+  statuePos={x:sp.x,y:sp.y};
+  teamMembers=editorEnt.teamMembers.map(m=>new TeamMember(m.id,m.x,m.y,m.id[0].toUpperCase()+m.id.slice(1),TEAM_COLORS[m.id]||'#fff',m.id));
+  animals=editorEnt.animals.map(a=>new Animal(a.type,a.x,a.y));
+  updateTeamHUD();
+  updateCam();
   buildPalette();
   ThreeView.markDirty();
 }
@@ -2871,12 +2945,37 @@ function setEditorMouseFromEvent(e){
   }
 }
 
+function placeDraggedEditorTool(e){
+  if(!editorMode) return;
+  const tool=e.dataTransfer.getData('text/plain');
+  if(!tool) return;
+  e.preventDefault();
+  const prev=editorTool;
+  selectTool(tool);
+  setEditorMouseFromEvent(e);
+  editorPlace(editorMouseTx,editorMouseTy);
+  selectTool(tool||prev);
+  ThreeView.markDirty();
+}
+
 function setupEditorUI(){
   buildPalette();
+  document.getElementById('map-world-w').value=WORLD_W;
+  document.getElementById('map-world-h').value=WORLD_H;
+  const editorPanel=document.getElementById('editor-panel');
+  const editorTab=document.getElementById('editor-tab');
+  const collapseBtn=document.getElementById('editor-collapse');
+  function setEditorCollapsed(on){
+    editorCollapsed=on;
+    editorPanel.classList.toggle('collapsed',editorCollapsed);
+    editorTab.classList.toggle('hidden',!editorMode||!editorCollapsed);
+    collapseBtn.innerHTML=editorCollapsed?'&#9654;':'&#9664;';
+    collapseBtn.title=editorCollapsed?'Expand editor':'Collapse editor';
+  }
 
   document.getElementById('editor-btn').addEventListener('click',()=>{
     editorMode=!editorMode;
-    document.getElementById('editor-panel').classList.toggle('hidden',!editorMode);
+    editorPanel.classList.toggle('hidden',!editorMode);
     document.getElementById('editor-btn').classList.toggle('active',editorMode);
     document.getElementById('settings-panel').classList.add('hidden');
     if(editorMode){
@@ -2886,9 +2985,12 @@ function setupEditorUI(){
       editorEnt.animals=animals.map(a=>({type:a.type,x:a.x,y:a.y}));
       setHint('WASD · pan  |  Click · place  |  Right-click · erase');
     } else {
+      setEditorCollapsed(false);
       setHint(mode3D?'3D mode · WASD / Arrows · move  |  E · interact':'WASD / Arrows · move  |  E · interact');
     }
   });
+  collapseBtn.addEventListener('click',()=>setEditorCollapsed(!editorCollapsed));
+  editorTab.addEventListener('click',()=>setEditorCollapsed(false));
 
   canvas.addEventListener('mousemove',e=>{
     if(!editorMode) return;
@@ -2904,6 +3006,8 @@ function setupEditorUI(){
   canvas.addEventListener('mouseup',()=>{ editorMouseDown=false; });
   canvas.addEventListener('mouseleave',()=>{ editorMouseDown=false; editorMouseTx=-1; editorMouseTy=-1; });
   canvas.addEventListener('contextmenu',e=>{ if(editorMode) e.preventDefault(); });
+  canvas.addEventListener('dragover',e=>{ if(editorMode&&!mode3D){ e.preventDefault(); e.dataTransfer.dropEffect='copy'; } });
+  canvas.addEventListener('drop',placeDraggedEditorTool);
   window.addEventListener('mouseup',()=>{ editorMouseDown=false; });
   document.addEventListener('mousemove',e=>{
     if(!editorMode||!mode3D||e.target.closest('#ui')) return;
@@ -2916,8 +3020,11 @@ function setupEditorUI(){
     else if(e.button===2){ setEditorMouseFromEvent(e); const prev=editorTool; editorTool='erase'; editorPlace(editorMouseTx,editorMouseTy); editorTool=prev; ThreeView.markDirty(); }
   });
   document.addEventListener('contextmenu',e=>{ if(editorMode&&mode3D&&!e.target.closest('#ui')) e.preventDefault(); });
+  document.addEventListener('dragover',e=>{ if(editorMode&&mode3D&&!e.target.closest('#ui')){ e.preventDefault(); e.dataTransfer.dropEffect='copy'; } });
+  document.addEventListener('drop',e=>{ if(editorMode&&mode3D&&!e.target.closest('#ui')) placeDraggedEditorTool(e); });
 
   // Item creator modal handlers
+  document.getElementById('map-new').addEventListener('click',createBlankMapFromInputs);
   document.getElementById('ic-save').addEventListener('click',saveFromItemModal);
   document.getElementById('ic-delete').addEventListener('click',deleteCustomItem);
   document.getElementById('ic-cancel').addEventListener('click',closeItemEditor);
