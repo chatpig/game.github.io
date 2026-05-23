@@ -38,6 +38,8 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 .msg-sys{color:#888;margin-bottom:8px;font-style:italic}
 .msg-err{color:#f88;margin-bottom:8px}
 .msg-label{font-size:9px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.run-html-btn{margin-top:6px;background:#204a30;border:1px solid #3a7a4a;border-radius:5px;color:#bff0c8;cursor:pointer;padding:4px 9px;font-size:11px;font-family:monospace;font-weight:bold}
+.run-html-btn:hover{background:#2c633f;color:#e0ffe6}
 #image-preview{display:none;align-items:center;gap:8px;font-size:11px;color:#888}
 #image-preview img{max-height:48px;border-radius:4px;border:1px solid #445}
 #img-clear{background:none;border:none;color:#a55;cursor:pointer;font-size:11px;pointer-events:all}
@@ -555,8 +557,12 @@ function drawDecor(d){
     ctx2.fillRect(x-10,y-1,20,2); ctx2.fillRect(x-1,y-6,2,12);
     ctx2.fillRect(x-8,y-4,3,3); ctx2.fillRect(x+5,y-4,3,3); ctx2.fillRect(x-8,y+1,3,3); ctx2.fillRect(x+5,y+1,3,3);
     ctx2.fillStyle='#999'; ctx2.fillRect(x+9,y-1,3,2); ctx2.fillRect(x-12,y-1,3,2);
+  } else if(SOCCER_TYPES.includes(d.type)){
+    drawSoccerDecor(d);
   } else if(INTERIOR_TYPES.includes(d.type)){
     drawInteriorDecor(d);
+  } else if(WORKFLOW_TYPES.includes(d.type)){
+    drawWorkflowDecor(d);
   } else if(HK_TYPES.includes(d.type)){
     drawHKDecor(d);
   } else if(BRITISH_TYPES.includes(d.type)){
@@ -574,6 +580,72 @@ function drawDecor(d){
   } else if(customPalette.some(p=>p.id===d.type)){
     drawCustomDecor(d);
   }
+}
+
+function drawSoccerDecor(d){
+  const x=d.x,y=d.y,w=d.w||TILE,h=d.h||TILE,c=d.c||'#3f8f3f',c2=d.c2||'#f4f8f0';
+  const line=()=>{ ctx2.strokeStyle=c2; ctx2.lineWidth=3; ctx2.lineCap='square'; };
+  if(d.type==='soccer_pitch'){
+    ctx2.fillStyle=c; ctx2.fillRect(x,y,w,h);
+    ctx2.fillStyle='rgba(255,255,255,.06)';
+    for(let i=0;i<6;i++) ctx2.fillRect(x,y+i*h/6,w,h/12);
+    line();
+    ctx2.strokeRect(x+6,y+6,w-12,h-12);
+    ctx2.beginPath(); ctx2.moveTo(x+w/2,y+6); ctx2.lineTo(x+w/2,y+h-6); ctx2.stroke();
+    ctx2.beginPath(); ctx2.arc(x+w/2,y+h/2,Math.min(w,h)*.16,0,Math.PI*2); ctx2.stroke();
+    ctx2.strokeRect(x+6,y+h*.28,w*.18,h*.44);
+    ctx2.strokeRect(x+w-w*.18-6,y+h*.28,w*.18,h*.44);
+    ctx2.strokeRect(x-10,y+h*.36,16,h*.28);
+    ctx2.strokeRect(x+w-6,y+h*.36,16,h*.28);
+    return;
+  }
+  if(d.type==='pitch_touchline'||d.type==='pitch_halfway_line'||d.type==='pitch_goal_line'){
+    const vertical=d.type!=='pitch_touchline';
+    ctx2.fillStyle=c2;
+    if(vertical) ctx2.fillRect(x+w/2-2,y+2,4,h-4);
+    else ctx2.fillRect(x+2,y+h/2-2,w-4,4);
+    return;
+  }
+  if(d.type==='pitch_center_circle'){
+    line(); ctx2.beginPath(); ctx2.arc(x+w/2,y+h/2,Math.min(w,h)*.38,0,Math.PI*2); ctx2.stroke();
+    ctx2.fillStyle=c2; ctx2.fillRect(x+w/2-2,y+h/2-2,4,4);
+    return;
+  }
+  if(d.type==='soccer_goal'||d.type==='soccer_goal_v'){
+    line(); ctx2.strokeRect(x+4,y+4,w-8,h-8);
+    ctx2.strokeStyle='rgba(244,248,240,.55)'; ctx2.lineWidth=1;
+    for(let xx=x+10;xx<x+w-6;xx+=8){ ctx2.beginPath(); ctx2.moveTo(xx,y+5); ctx2.lineTo(xx,y+h-5); ctx2.stroke(); }
+    for(let yy=y+10;yy<y+h-6;yy+=8){ ctx2.beginPath(); ctx2.moveTo(x+5,yy); ctx2.lineTo(x+w-5,yy); ctx2.stroke(); }
+  }
+}
+
+function drawWorkflowDecor(d){
+  const x=d.x,y=d.y,w=d.w||TILE,h=d.h||TILE,s=WORKFLOW_SPECS[d.type]||{};
+  if(s.kind==='line'){
+    const arrow=s.arrow, vertical=s.dir==='v';
+    ctx2.strokeStyle=d.c||'#9aa7ff'; ctx2.lineWidth=3; ctx2.lineCap='round';
+    ctx2.beginPath();
+    if(vertical){ ctx2.moveTo(x+w/2,y+4); ctx2.lineTo(x+w/2,y+h-4); }
+    else { ctx2.moveTo(x+4,y+h/2); ctx2.lineTo(x+w-4,y+h/2); }
+    ctx2.stroke(); ctx2.lineCap='butt';
+    if(arrow){
+      ctx2.fillStyle=d.c||'#9aa7ff'; ctx2.beginPath();
+      if(vertical){ ctx2.moveTo(x+w/2,y+h-3); ctx2.lineTo(x+w/2-5,y+h-11); ctx2.lineTo(x+w/2+5,y+h-11); }
+      else { ctx2.moveTo(x+w-3,y+h/2); ctx2.lineTo(x+w-11,y+h/2-5); ctx2.lineTo(x+w-11,y+h/2+5); }
+      ctx2.fill();
+    }
+    return;
+  }
+  const label=s.label||d._label||'Node', icon=s.icon||'?', c=d.c||s.c||'#4a5cff', c2=d.c2||s.c2||'#151a2a';
+  ctx2.fillStyle='rgba(0,0,0,.2)'; ctx2.fillRect(x+4,y+h-4,w-6,5);
+  ctx2.fillStyle=c2; ctx2.fillRect(x+2,y+4,w-4,h-10);
+  ctx2.strokeStyle=c; ctx2.lineWidth=2; ctx2.strokeRect(x+3,y+5,w-6,h-12);
+  ctx2.fillStyle=c; ctx2.fillRect(x+6,y+8,18,18);
+  ctx2.fillStyle='#fff'; ctx2.font='bold 12px monospace'; ctx2.textAlign='center'; ctx2.textBaseline='middle'; ctx2.fillText(icon,x+15,y+17);
+  ctx2.fillStyle='#eef2ff'; ctx2.font='bold 8px monospace'; ctx2.textAlign='left';
+  ctx2.fillText(label,x+28,y+18);
+  ctx2.fillStyle='#6ee7b7'; ctx2.beginPath(); ctx2.arc(x+5,y+h/2,3,0,Math.PI*2); ctx2.arc(x+w-5,y+h/2,3,0,Math.PI*2); ctx2.fill();
+  ctx2.textBaseline='alphabetic';
 }
 
 function drawInteriorDecor(d){
@@ -1288,8 +1360,53 @@ class Animal{
   }
 }
 
+class SoccerBall{
+  constructor(x,y){
+    this.x=x; this.y=y; this.vx=0; this.vy=0; this.r=10; this.spin=0;
+  }
+  update(dt){
+    this.hitFrom(player,dt);
+    for(const m of teamMembers) if(m.joined) this.hitFrom(m,dt*.75);
+
+    this.x+=this.vx*dt;
+    this.y+=this.vy*dt;
+    if(this.x<this.r){ this.x=this.r; this.vx=Math.abs(this.vx)*.4; }
+    if(this.x>WPX-this.r){ this.x=WPX-this.r; this.vx=-Math.abs(this.vx)*.4; }
+    if(this.y<this.r){ this.y=this.r; this.vy=Math.abs(this.vy)*.4; }
+    if(this.y>HPX-this.r){ this.y=HPX-this.r; this.vy=-Math.abs(this.vy)*.4; }
+    const drag=Math.pow(.12,dt);
+    this.vx*=drag; this.vy*=drag;
+    if(Math.hypot(this.vx,this.vy)<4){ this.vx=0; this.vy=0; }
+    this.spin+=Math.hypot(this.vx,this.vy)*dt*.08;
+  }
+  hitFrom(entity,dt){
+    const dx=this.x-entity.x, dy=this.y-entity.y, min=this.r+16;
+    let dist=Math.hypot(dx,dy);
+    if(dist>min) return;
+    let nx=dx/(dist||1), ny=dy/(dist||1);
+    if(dist<1){
+      const f=faceVector(entity.facing);
+      nx=f.x; ny=f.y; dist=1;
+    }
+    const overlap=min-dist;
+    this.x+=nx*overlap*.55;
+    this.y+=ny*overlap*.55;
+    const kick=entity.moving?260:130;
+    this.vx+=nx*kick*(.35+dt*3);
+    this.vy+=ny*kick*(.35+dt*3);
+  }
+}
+
+function faceVector(facing){
+  if(facing==='left') return {x:-1,y:0};
+  if(facing==='right') return {x:1,y:0};
+  if(facing==='up') return {x:0,y:-1};
+  return {x:0,y:1};
+}
+
 // ─── GAME ENTITIES ─────────────────────────────────────────────────────────────
 let player, teamMembers, animals, statuePos;
+let soccerBalls=[];
 
 function initEntities(){
   // Park center (block 1,1: x=22-38,y=22-38 → center ~30,30)
@@ -1301,6 +1418,7 @@ function initEntities(){
     new TeamMember('lobster', 45*TILE,    17*TILE, 'Lobster', '#ff88cc', 'lobster'),
     new TeamMember('durian',  65*TILE,    30*TILE, 'Durian',  '#ddcc00', 'durian'),
   ];
+  soccerBalls=[];
   animals=[];
   const walkers=['man','woman','kid','wheelchair','pig','cow','cat','dog','sheep','monkey','elephant'];
   walkers.forEach(t=>{
@@ -1349,6 +1467,25 @@ function drawAnimalEntity(a){
   const tw=ctx2.measureText(name).width+8;
   ctx2.fillStyle='rgba(0,0,0,0.5)'; ctx2.fillRect(a.x-tw/2,a.y-40,tw,13);
   ctx2.fillStyle='#ddd'; ctx2.fillText(name,a.x,a.y-30);
+}
+
+function drawSoccerBall(ball){
+  const r=ball.r||10, x=ball.x, y=ball.y;
+  shadow(x,y+5,r*.95,4);
+  ctx2.save();
+  ctx2.translate(x,y-8);
+  ctx2.rotate(ball.spin||0);
+  ctx2.fillStyle='#f8f8f0';
+  ctx2.beginPath(); ctx2.arc(0,0,r,0,Math.PI*2); ctx2.fill();
+  ctx2.fillStyle='#111';
+  ctx2.beginPath(); ctx2.arc(0,0,r*.34,0,Math.PI*2); ctx2.fill();
+  for(let i=0;i<5;i++){
+    const a=i*Math.PI*2/5;
+    ctx2.beginPath(); ctx2.arc(Math.cos(a)*r*.58,Math.sin(a)*r*.58,r*.18,0,Math.PI*2); ctx2.fill();
+  }
+  ctx2.strokeStyle='#d8d8d0'; ctx2.lineWidth=1;
+  ctx2.beginPath(); ctx2.arc(0,0,r-.5,0,Math.PI*2); ctx2.stroke();
+  ctx2.restore();
 }
 
 function drawStatue(){
@@ -1424,6 +1561,29 @@ function closeDialog(){
 
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
 
+function extractHtmlCode(s){
+  const m=String(s).match(/```html\s*([\s\S]*?)```/i);
+  return m?m[1].trim():null;
+}
+
+function renderOracleReply(el,reply){
+  el.innerHTML=`<div class="msg-label">GGUF Oracle</div>${esc(reply)}`;
+  const html=extractHtmlCode(reply);
+  if(!html) return;
+  const btn=document.createElement('button');
+  btn.className='run-html-btn';
+  btn.type='button';
+  btn.textContent='Run HTML';
+  btn.addEventListener('click',()=>{
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const win=window.open(url,'_blank','noopener,noreferrer');
+    if(!win) alert('Popup blocked. Allow popups to run the HTML preview.');
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  });
+  el.appendChild(btn);
+}
+
 async function sendMsg(){
   const textEl=document.getElementById('dialog-text');
   const sendBtn=document.getElementById('dialog-send');
@@ -1462,17 +1622,17 @@ async function sendMsg(){
       body:JSON.stringify({
         model:cfg.model,
         messages:[
-          {role:'system',content:'You are the GGUF Oracle, a wise ancient stone statue in a cozy animal village. Speak in a warm, slightly mystical tone. Be concise (2-3 sentences). When analyzing images, describe what you see in a playful village-oracle style.'},
+          {role:'system',content:'You are the GGUF Oracle, a wise ancient stone statue in a cozy animal village. Speak in a warm, slightly mystical tone. Be concise (2-3 sentences unless coding task). When analyzing images, describe what you see in a playful village-oracle style.'},
           ...dialogHistory
         ],
-        max_tokens:350,stream:false
+        max_tokens:65536,stream:false
       })
     });
     if(!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
     const data=await res.json();
     const reply=data.choices?.[0]?.message?.content||'The Oracle remains silent...';
     dialogHistory.push({role:'assistant',content:reply});
-    aiDiv.innerHTML=`<div class="msg-label">GGUF Oracle</div>${esc(reply)}`;
+    renderOracleReply(aiDiv,reply);
     Aud.sfx.recv();
   } catch(e){
     aiDiv.className='msg-err';
@@ -1693,8 +1853,12 @@ const ThreeView=(()=>{
       addBox(worldGroup,x+.5,z+.5,.32,.1,.12,'#aa1111',.24);
     } else if(d.type==='culvert_cover'){
       addBox(worldGroup,x+.5,z+.5,.55,.55,.035,'#6a6a7a',.04);
+    } else if(SOCCER_TYPES.includes(d.type)){
+      addSoccer3D(d,x,z);
     } else if(INTERIOR_TYPES.includes(d.type)){
       addInterior3D(d,x,z);
+    } else if(WORKFLOW_TYPES.includes(d.type)){
+      addWorkflow3D(d,x,z);
     } else if(HK_TYPES.includes(d.type)){
       addHK3D(d,x,z);
     } else if(BRITISH_TYPES.includes(d.type)){
@@ -1712,6 +1876,64 @@ const ThreeView=(()=>{
     } else if(customPalette.some(p=>p.id===d.type)){
       addCustom3D(d,x,z);
     }
+  }
+  function addSoccer3D(d,x,z){
+    const w=sx(d.w||TILE),dep=sy(d.h||TILE),c=cssHex(d.c,'#3f8f3f'),c2=cssHex(d.c2,'#f4f8f0');
+    if(d.type==='soccer_pitch'){
+      addBox(worldGroup,x+w/2,z+dep/2,w,dep,.035,c,.09);
+      addBox(worldGroup,x+w/2,z+dep*.04,w*.96,.035,.045,c2,.12);
+      addBox(worldGroup,x+w/2,z+dep*.96,w*.96,.035,.045,c2,.12);
+      addBox(worldGroup,x+w*.04,z+dep/2,.035,dep*.92,.045,c2,.12);
+      addBox(worldGroup,x+w*.96,z+dep/2,.035,dep*.92,.045,c2,.12);
+      addBox(worldGroup,x+w/2,z+dep/2,.035,dep*.92,.045,c2,.12);
+      addBox(worldGroup,x+w*.13,z+dep/2,.035,dep*.44,.045,c2,.12);
+      addBox(worldGroup,x+w*.87,z+dep/2,.035,dep*.44,.045,c2,.12);
+      addCircleLine3D(x+w/2,z+dep/2,Math.min(w,dep)*.16,c2,.13);
+      addBox(worldGroup,x-.04,z+dep/2,.12,dep*.28,.06,c2,.16);
+      addBox(worldGroup,x+w+.04,z+dep/2,.12,dep*.28,.06,c2,.16);
+      return;
+    }
+    if(d.type==='pitch_touchline') addBox(worldGroup,x+w/2,z+dep/2,w*.9,.06,.045,c2,.12);
+    else if(d.type==='pitch_halfway_line'||d.type==='pitch_goal_line') addBox(worldGroup,x+w/2,z+dep/2,.06,dep*.9,.045,c2,.12);
+    else if(d.type==='pitch_center_circle') addCircleLine3D(x+w/2,z+dep/2,Math.min(w,dep)*.38,c2,.13);
+    else if(d.type==='soccer_goal') addBox(worldGroup,x+w/2,z+dep/2,w*.9,.08,.12,c2,.12);
+    else if(d.type==='soccer_goal_v') addBox(worldGroup,x+w/2,z+dep/2,.08,dep*.9,.12,c2,.12);
+  }
+  function addCircleLine3D(x,z,r,color,y){
+    const geo=new THREE.RingGeometry(r*.9,r,32);
+    const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color,side:THREE.DoubleSide}));
+    mesh.rotation.x=-Math.PI/2; mesh.position.set(x,y,z); mesh.receiveShadow=true; worldGroup.add(mesh);
+  }
+  function addWorkflow3D(d,x,z){
+    const w=sx(d.w||TILE),dep=sy(d.h||TILE),s=WORKFLOW_SPECS[d.type]||{},c=cssHex(d.c||s.c||'#4a5cff'),c2=cssHex(d.c2||s.c2||'#151a2a');
+    if(s.kind==='line'){
+      const vertical=s.dir==='v';
+      addBox(worldGroup,x+w/2,z+dep/2,vertical?.08:w*.9,vertical?dep*.9:.08,.055,c,.08);
+      if(s.arrow){
+        if(vertical) addBox(worldGroup,x+w/2,z+dep*.86,.28,.12,.06,c,.1);
+        else addBox(worldGroup,x+w*.86,z+dep/2,.12,.28,.06,c,.1);
+      }
+      return;
+    }
+    addBox(worldGroup,x+w/2,z+dep/2,w*.94,dep*.86,.14,c2,.08);
+    addBox(worldGroup,x+w*.18,z+dep/2,w*.22,dep*.44,.18,c,.18);
+    const tex=makeCanvasTexture((ctx,size)=>{
+      ctx.clearRect(0,0,size,size);
+      ctx.fillStyle='rgba(10,14,28,.92)';
+      ctx.fillRect(4,18,size-8,size-36);
+      ctx.strokeStyle=c; ctx.lineWidth=8; ctx.strokeRect(8,22,size-16,size-44);
+      ctx.fillStyle='#eef2ff';
+      ctx.font='bold 72px monospace';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(s.icon||'?',size*.18,size*.52);
+      ctx.font='bold 72px monospace';
+      const label=s.label||'Node';
+      ctx.fillText(label.length>10?label.slice(0,10):label,size*.62,size*.52);
+    },512);
+    const pMat=new THREE.MeshBasicMaterial({map:tex,transparent:true,alphaTest:.04,side:THREE.DoubleSide});
+    const pMesh=new THREE.Mesh(new THREE.PlaneGeometry(w*.92,dep*.72),pMat);
+    pMesh.rotation.x=-Math.PI/2; pMesh.position.set(x+w/2,.58,z+dep/2);
+    worldGroup.add(pMesh);
   }
   function addInterior3D(d,x,z){
     const w=sx(d.w||TILE),dep=sy(d.h||TILE),c=cssHex(d.c,'#9a8a78'),c2=cssHex(d.c2,'#5a4a3a');
@@ -2167,6 +2389,15 @@ const ThreeView=(()=>{
     const m=new THREE.Mesh(new THREE.SphereGeometry(r,12,8),mat(color));
     m.position.set(x,y,z); m.scale.y=scaleY; m.castShadow=m.receiveShadow=true; g.add(m); return m;
   }
+  function addSoccerBall3D(ball){
+    const g=new THREE.Group();
+    addSphere(g,.32,'#f8f8f0',0,.32,0,1);
+    addSphere(g,.11,'#111111',0,.33,.27,.45);
+    [[.18,.2],[-.18,.2],[.2,-.08],[-.2,-.08],[0,-.24]].forEach(([px,pz])=>addSphere(g,.07,'#111111',px,.34,pz,.55));
+    g.position.set(wx(ball.x),0,wz(ball.y));
+    g.rotation.y=ball.spin||0;
+    entityGroup.add(g);
+  }
   function addEye(g,x,y,z){
     const e=new THREE.Mesh(new THREE.SphereGeometry(.045,6,4),mat('#111111'));
     e.position.set(x,y,z); e.castShadow=true; g.add(e); return e;
@@ -2248,6 +2479,7 @@ const ThreeView=(()=>{
     if(!ready) return;
     clearGroup(entityGroup);
     addCharacter3D('statue',statuePos,1.6);
+    for(const b of soccerBalls) addSoccerBall3D(b);
     for(const a of animals){
       const s=new THREE.Sprite(animalMat(a.type));
       s.scale.set(1.65,1.65,1); s.position.set(wx(a.x),.92,wz(a.y)); s.renderOrder=12; entityGroup.add(s);
@@ -2338,6 +2570,10 @@ function render(){
     if(Math.abs(a.x-player.x)>canvas.width/2+60||Math.abs(a.y-player.y)>canvas.height/2+60) continue;
     R.push({sortY:a.y+4,draw:()=>drawAnimalEntity(a)});
   }
+  for(const b of soccerBalls){
+    if(Math.abs(b.x-player.x)>canvas.width/2+60||Math.abs(b.y-player.y)>canvas.height/2+60) continue;
+    R.push({sortY:b.y+4,draw:()=>drawSoccerBall(b)});
+  }
   // Statue
   R.push({sortY:statuePos.y+8,draw:drawStatue});
   // Team members
@@ -2367,7 +2603,7 @@ function render(){
 }
 
 function isGroundDecor(d){
-  return d.type==='flower'||d.type==='crosswalk'||d.type.startsWith('floor_')||d.type==='stairs';
+  return d.type==='flower'||d.type==='crosswalk'||d.type.startsWith('floor_')||d.type==='stairs'||SOCCER_TYPES.includes(d.type)||WORKFLOW_SPECS[d.type]?.kind==='line';
 }
 
 // ─── GAME LOOP ─────────────────────────────────────────────────────────────────
@@ -2386,6 +2622,7 @@ function loop(ts){
     interactTarget=findTarget();
     let leader=player;
     for(const m of teamMembers){ m.update(dt,leader); if(m.joined) leader=m; }
+    for(const b of soccerBalls) b.update(dt);
     for(const a of animals) a.update(dt);
   }
   if(mode3D){
@@ -2402,7 +2639,7 @@ let editorMode=false, editorMouseDown=false, editorMouseTx=-1, editorMouseTy=-1;
 let editorCollapsed=false;
 let editorTool='grass';
 
-const editorEnt={playerStart:null,statuePos:null,teamMembers:[],animals:[]};
+const editorEnt={playerStart:null,statuePos:null,teamMembers:[],animals:[],soccerBalls:[]};
 
 let paletteOverrides={};   // {itemId:{label?,cat?,color?,c?,c2?}}  – overrides for built-in items
 let customPalette=[];       // [{id,label,cat,color,c,c2,w,h,pixels?}]  – user-created items
@@ -2528,6 +2765,27 @@ const PALETTE=[
   {id:'shower',       label:'Shower',       cat:'Interior',   color:'#9cc8d8'},
   {id:'mirror',       label:'Mirror',       cat:'Interior',   color:'#aee8ff'},
   {id:'rug',          label:'Rug',          cat:'Interior',   color:'#8e4a86'},
+  {id:'wf_email',     label:'Email Node',   cat:'Workflow',   color:'#3b82f6'},
+  {id:'wf_ai_agent',  label:'AI Agent',     cat:'Workflow',   color:'#8b5cf6'},
+  {id:'wf_web_search',label:'Web Search',   cat:'Workflow',   color:'#06b6d4'},
+  {id:'wf_llm',       label:'LLM',          cat:'Workflow',   color:'#f97316'},
+  {id:'wf_memory',    label:'Memory',       cat:'Workflow',   color:'#22c55e'},
+  {id:'wf_json_output',label:'JSON Output', cat:'Workflow',   color:'#eab308'},
+  {id:'wf_sheet_output',label:'Spreadsheet',cat:'Workflow',   color:'#10b981'},
+  {id:'wf_trigger',   label:'Trigger',      cat:'Workflow',   color:'#ef4444'},
+  {id:'wf_filter',    label:'Filter',       cat:'Workflow',   color:'#64748b'},
+  {id:'wf_connector', label:'Line',         cat:'Workflow',   color:'#9aa7ff'},
+  {id:'wf_arrow',     label:'Arrow Line',   cat:'Workflow',   color:'#9aa7ff'},
+  {id:'wf_connector_v',label:'Line V',      cat:'Workflow',   color:'#9aa7ff'},
+  {id:'wf_arrow_v',   label:'Arrow V',      cat:'Workflow',   color:'#9aa7ff'},
+  {id:'soccer_pitch', label:'Whole Pitch',  cat:'Soccer Pitch',color:'#3f8f3f'},
+  {id:'pitch_touchline',label:'Touchline',  cat:'Soccer Pitch',color:'#f4f8f0'},
+  {id:'pitch_goal_line',label:'Goal Line',  cat:'Soccer Pitch',color:'#f4f8f0'},
+  {id:'pitch_halfway_line',label:'Halfway Line',cat:'Soccer Pitch',color:'#f4f8f0'},
+  {id:'pitch_center_circle',label:'Center Circle',cat:'Soccer Pitch',color:'#f4f8f0'},
+  {id:'soccer_goal',  label:'Goal H',       cat:'Soccer Pitch',color:'#f4f8f0'},
+  {id:'soccer_goal_v',label:'Goal V',       cat:'Soccer Pitch',color:'#f4f8f0'},
+  {id:'soccer_ball',  label:'Hittable Ball',cat:'Soccer Pitch',color:'#f8f8f0'},
   ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(ch=>({id:'text_'+ch.toLowerCase(),label:ch,cat:'Text',color:'#101828',c:'#101828',c2:'#f0f4ff',char:ch})),
   ...[
     ['text_tilde','~'],['text_bang','!'],['text_at','@'],['text_hash','#'],['text_dollar','$'],['text_percent','%'],['text_amp','&'],['text_question','?'],
@@ -2619,7 +2877,7 @@ function labelToId(s){
 }
 
 function getSpecForId(id){
-  const maps=[OFFICE_SPECS,SF_SPECS,NYC_SPECS,JAPAN_SPECS,BRITISH_SPECS,HK_SPECS];
+  const maps=[OFFICE_SPECS,SF_SPECS,NYC_SPECS,JAPAN_SPECS,BRITISH_SPECS,HK_SPECS,SOCCER_SPECS];
   for(const m of maps) if(m[id]) return m[id];
   return null;
 }
@@ -2897,9 +3155,35 @@ const INTERIOR_SPECS={
   rug:{w:2,h:1,c:'#8e4a86',c2:'#5c2f58'},
 };
 const INTERIOR_TYPES=Object.keys(INTERIOR_SPECS);
+const WORKFLOW_SPECS={
+  wf_email:{w:3,h:1,c:'#3b82f6',c2:'#111827',label:'Email',icon:'@'},
+  wf_ai_agent:{w:3,h:1,c:'#8b5cf6',c2:'#111827',label:'AI Agent',icon:'AI'},
+  wf_web_search:{w:3,h:1,c:'#06b6d4',c2:'#111827',label:'Web Search',icon:'?'},
+  wf_llm:{w:3,h:1,c:'#f97316',c2:'#111827',label:'LLM',icon:'L'},
+  wf_memory:{w:3,h:1,c:'#22c55e',c2:'#111827',label:'Memory',icon:'M'},
+  wf_json_output:{w:3,h:1,c:'#eab308',c2:'#111827',label:'JSON Out',icon:'{}'},
+  wf_sheet_output:{w:3,h:1,c:'#10b981',c2:'#111827',label:'Sheet Out',icon:'#'},
+  wf_trigger:{w:3,h:1,c:'#ef4444',c2:'#111827',label:'Trigger',icon:'▶'},
+  wf_filter:{w:3,h:1,c:'#64748b',c2:'#111827',label:'Filter',icon:'F'},
+  wf_connector:{w:2,h:1,c:'#9aa7ff',c2:'#9aa7ff',kind:'line',dir:'h',arrow:false},
+  wf_arrow:{w:2,h:1,c:'#9aa7ff',c2:'#9aa7ff',kind:'line',dir:'h',arrow:true},
+  wf_connector_v:{w:1,h:2,c:'#9aa7ff',c2:'#9aa7ff',kind:'line',dir:'v',arrow:false},
+  wf_arrow_v:{w:1,h:2,c:'#9aa7ff',c2:'#9aa7ff',kind:'line',dir:'v',arrow:true},
+};
+const WORKFLOW_TYPES=Object.keys(WORKFLOW_SPECS);
+const SOCCER_SPECS={
+  soccer_pitch:{w:8,h:5,c:'#3f8f3f',c2:'#f4f8f0'},
+  pitch_touchline:{w:4,h:1,c:'#3f8f3f',c2:'#f4f8f0'},
+  pitch_goal_line:{w:1,h:4,c:'#3f8f3f',c2:'#f4f8f0'},
+  pitch_halfway_line:{w:1,h:5,c:'#3f8f3f',c2:'#f4f8f0'},
+  pitch_center_circle:{w:2,h:2,c:'#3f8f3f',c2:'#f4f8f0'},
+  soccer_goal:{w:2,h:1,c:'#3f8f3f',c2:'#f4f8f0'},
+  soccer_goal_v:{w:1,h:2,c:'#3f8f3f',c2:'#f4f8f0'},
+};
+const SOCCER_TYPES=Object.keys(SOCCER_SPECS);
 const TEXT_SPECS=Object.fromEntries(PALETTE.filter(p=>p.cat==='Text').map(p=>[p.id,{w:1,h:1,c:p.c||p.color,c2:p.c2,char:p.char,label:p.label}]));
 const TEXT_TYPES=Object.keys(TEXT_SPECS);
-const DECOR_TYPES=['tree','flower','building','car','truck','bus','traffic_light','fire_hydrant','culvert_cover','crosswalk',...OFFICE_TYPES,...SF_TYPES,...NYC_TYPES,...JAPAN_TYPES,...BRITISH_TYPES,...HK_TYPES,...INTERIOR_TYPES,...TEXT_TYPES];
+const DECOR_TYPES=['tree','flower','building','car','truck','bus','traffic_light','fire_hydrant','culvert_cover','crosswalk',...OFFICE_TYPES,...SF_TYPES,...NYC_TYPES,...JAPAN_TYPES,...BRITISH_TYPES,...HK_TYPES,...INTERIOR_TYPES,...WORKFLOW_TYPES,...SOCCER_TYPES,...TEXT_TYPES];
 
 function editorPlace(tx,ty){
   if(tx<0||ty<0||tx>=WORLD_W||ty>=WORLD_H) return;
@@ -2916,7 +3200,7 @@ function editorPlace(tx,ty){
           for(let yy=by;yy<by+bh;yy++) for(let xx=bx;xx<bx+bw;xx++) setT(xx,yy,T_GRASS);
           decors.splice(i,1);
         }
-      } else if(OFFICE_TYPES.includes(d.type)||SF_TYPES.includes(d.type)||NYC_TYPES.includes(d.type)||JAPAN_TYPES.includes(d.type)||BRITISH_TYPES.includes(d.type)||HK_TYPES.includes(d.type)||INTERIOR_TYPES.includes(d.type)||TEXT_TYPES.includes(d.type)||customPalette.some(cp=>cp.id===d.type)){
+      } else if(OFFICE_TYPES.includes(d.type)||SF_TYPES.includes(d.type)||NYC_TYPES.includes(d.type)||JAPAN_TYPES.includes(d.type)||BRITISH_TYPES.includes(d.type)||HK_TYPES.includes(d.type)||INTERIOR_TYPES.includes(d.type)||WORKFLOW_TYPES.includes(d.type)||SOCCER_TYPES.includes(d.type)||TEXT_TYPES.includes(d.type)||customPalette.some(cp=>cp.id===d.type)){
         const bx=Math.floor(d.x/TILE),by=Math.floor(d.y/TILE),bw=Math.max(1,Math.round((d.w||TILE)/TILE)),bh=Math.max(1,Math.round((d.h||TILE)/TILE));
         if(tx>=bx&&tx<bx+bw&&ty>=by&&ty<by+bh) decors.splice(i,1);
       } else if(Math.floor(d.x/TILE)===tx&&Math.floor(d.y/TILE)===ty){
@@ -2926,6 +3210,8 @@ function editorPlace(tx,ty){
     }
     editorEnt.animals=editorEnt.animals.filter(a=>!(Math.floor(a.x/TILE)===tx&&Math.floor(a.y/TILE)===ty));
     editorEnt.teamMembers=editorEnt.teamMembers.filter(m=>!(Math.floor(m.x/TILE)===tx&&Math.floor(m.y/TILE)===ty));
+    editorEnt.soccerBalls=editorEnt.soccerBalls.filter(b=>!(Math.floor(b.x/TILE)===tx&&Math.floor(b.y/TILE)===ty));
+    soccerBalls=soccerBalls.filter(b=>!(Math.floor(b.x/TILE)===tx&&Math.floor(b.y/TILE)===ty));
     if(editorEnt.playerStart&&Math.floor(editorEnt.playerStart.x/TILE)===tx&&Math.floor(editorEnt.playerStart.y/TILE)===ty) editorEnt.playerStart=null;
     if(editorEnt.statuePos&&Math.floor(editorEnt.statuePos.x/TILE)===tx&&Math.floor(editorEnt.statuePos.y/TILE)===ty) editorEnt.statuePos=null;
     return;
@@ -3022,6 +3308,18 @@ function editorPlace(tx,ty){
     if(tx+s.w>WORLD_W||ty+s.h>WORLD_H) return;
     decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c,c2}); return;
   }
+  if(WORKFLOW_TYPES.includes(editorTool)){
+    const s=WORKFLOW_SPECS[editorTool]; const {c,c2}=placementColors(editorTool,s);
+    if(tx+s.w>WORLD_W||ty+s.h>WORLD_H) return;
+    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c,c2,_label:s.label});
+    return;
+  }
+  if(SOCCER_TYPES.includes(editorTool)){
+    const s=SOCCER_SPECS[editorTool]; const {c,c2}=placementColors(editorTool,s);
+    if(tx+s.w>WORLD_W||ty+s.h>WORLD_H) return;
+    decors.push({type:editorTool,x:tx*TILE,y:ty*TILE,w:s.w*TILE,h:s.h*TILE,c,c2});
+    return;
+  }
   if(TEXT_TYPES.includes(editorTool)){
     const s=TEXT_SPECS[editorTool]; const {c,c2}=placementColors(editorTool,s);
     if(tx+s.w>WORLD_W||ty+s.h>WORLD_H) return;
@@ -3038,6 +3336,11 @@ function editorPlace(tx,ty){
     return;
   }
   if(ANIMAL_TYPES.includes(editorTool)){ editorEnt.animals.push({type:editorTool,x:px,y:py}); return; }
+  if(editorTool==='soccer_ball'){
+    editorEnt.soccerBalls.push({x:px,y:py});
+    soccerBalls.push(new SoccerBall(px,py));
+    return;
+  }
   if(editorTool==='connector'){ editorEnt.playerStart={x:px,y:py}; return; }
   if(editorTool==='statue'){ editorEnt.statuePos={x:px,y:py}; return; }
   if(['zombie','lobster','durian'].includes(editorTool)){
@@ -3058,6 +3361,7 @@ function renderEditorOverlay(){
   if(editorEnt.playerStart) marker(editorEnt.playerStart.x,editorEnt.playerStart.y,'#44cc44','YOU');
   if(editorEnt.statuePos) marker(editorEnt.statuePos.x,editorEnt.statuePos.y,'#aaaacc','STAT');
   for(const m of editorEnt.teamMembers) marker(m.x,m.y,TEAM_COLORS[m.id]||'#fff',m.id.slice(0,3).toUpperCase());
+  for(const b of editorEnt.soccerBalls) marker(b.x,b.y,'#f8f8f0','BALL');
   for(const a of editorEnt.animals){
     ctx2.fillStyle='rgba(255,255,180,0.35)'; ctx2.beginPath(); ctx2.arc(a.x,a.y,12,0,Math.PI*2); ctx2.fill();
     ctx2.fillStyle='#ffd'; ctx2.font='bold 8px monospace'; ctx2.textAlign='center'; ctx2.fillText(a.type[0].toUpperCase(),a.x,a.y+3);
@@ -3086,9 +3390,10 @@ function createBlankMapFromInputs(){
   editorEnt.statuePos={x:CX*TILE,y:CY*TILE};
   editorEnt.teamMembers=[];
   editorEnt.animals=[];
+  editorEnt.soccerBalls=[];
   player=new Player(editorEnt.playerStart.x,editorEnt.playerStart.y);
   statuePos={...editorEnt.statuePos};
-  teamMembers=[]; animals=[];
+  teamMembers=[]; animals=[]; soccerBalls=[];
   updateTeamHUD();
   updateCam();
   ThreeView.markDirty();
@@ -3109,6 +3414,7 @@ function saveMapJSON(){
       statuePos:   editorEnt.statuePos||{x:CX*TILE,y:CY*TILE},
       teamMembers: editorEnt.teamMembers,
       animals: editorEnt.animals,
+      soccerBalls: editorEnt.soccerBalls,
     },
     customPalette: JSON.parse(JSON.stringify(customPalette)),
     paletteOverrides: JSON.parse(JSON.stringify(paletteOverrides)),
@@ -3123,11 +3429,13 @@ function applyMapJSON(data){
   resizeWorld(data.worldW||WORLD_W,data.worldH||WORLD_H,T_GRASS);
   for(let i=0;i<tiles.length;i++) tiles[i]=data.tiles[i]!==undefined?data.tiles[i]:T_GRASS;
   decors.length=0; for(const d of data.decors) decors.push({...d});
+  editorEnt.soccerBalls=[];
   if(data.entities){
     editorEnt.playerStart=data.entities.playerStart||null;
     editorEnt.statuePos=data.entities.statuePos||null;
     editorEnt.teamMembers=[...(data.entities.teamMembers||[])];
     editorEnt.animals=[...(data.entities.animals||[])];
+    editorEnt.soccerBalls=[...(data.entities.soccerBalls||[])];
   }
   customPalette=Array.isArray(data.customPalette)?JSON.parse(JSON.stringify(data.customPalette)):[];
   paletteOverrides=(data.paletteOverrides&&typeof data.paletteOverrides==='object')?JSON.parse(JSON.stringify(data.paletteOverrides)):{};
@@ -3137,6 +3445,7 @@ function applyMapJSON(data){
   statuePos={x:sp.x,y:sp.y};
   teamMembers=editorEnt.teamMembers.map(m=>new TeamMember(m.id,m.x,m.y,m.id[0].toUpperCase()+m.id.slice(1),TEAM_COLORS[m.id]||'#fff',m.id));
   animals=editorEnt.animals.map(a=>new Animal(a.type,a.x,a.y));
+  soccerBalls=editorEnt.soccerBalls.map(b=>new SoccerBall(b.x,b.y));
   updateTeamHUD();
   updateCam();
   buildPalette();
@@ -3155,6 +3464,7 @@ function playEditorMap(){
   statuePos={x:sp.x,y:sp.y};
   teamMembers=tms.map(m=>new TeamMember(m.id,m.x,m.y,m.id[0].toUpperCase()+m.id.slice(1),TEAM_COLORS[m.id]||'#fff',m.id));
   animals=editorEnt.animals.map(a=>new Animal(a.type,a.x,a.y));
+  soccerBalls=editorEnt.soccerBalls.map(b=>new SoccerBall(b.x,b.y));
   editorMode=false;
   document.getElementById('editor-panel').classList.add('hidden');
   document.getElementById('editor-btn').classList.remove('active');
@@ -3211,6 +3521,7 @@ function setupEditorUI(){
       editorEnt.statuePos={x:statuePos.x,y:statuePos.y};
       editorEnt.teamMembers=teamMembers.map(m=>({id:m.id,x:m.x,y:m.y}));
       editorEnt.animals=animals.map(a=>({type:a.type,x:a.x,y:a.y}));
+      editorEnt.soccerBalls=soccerBalls.map(b=>({x:b.x,y:b.y}));
       setHint('WASD · pan  |  Click · place  |  Right-click · erase');
     } else {
       setEditorCollapsed(false);
@@ -3316,7 +3627,7 @@ function setupEditorUI(){
   document.getElementById('editor-clear').addEventListener('click',()=>{
     if(!confirm('Clear all tiles and objects?')) return;
     tiles.fill(T_GRASS); decors.length=0;
-    editorEnt.playerStart=null; editorEnt.statuePos=null; editorEnt.teamMembers=[]; editorEnt.animals=[];
+    editorEnt.playerStart=null; editorEnt.statuePos=null; editorEnt.teamMembers=[]; editorEnt.animals=[]; editorEnt.soccerBalls=[]; soccerBalls=[];
     ThreeView.markDirty();
   });
   document.getElementById('editor-load-input').addEventListener('change',e=>{
