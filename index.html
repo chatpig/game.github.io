@@ -2787,9 +2787,12 @@ const PALETTE=[
   {id:'soccer_goal_v',label:'Goal V',       cat:'Soccer Pitch',color:'#f4f8f0'},
   {id:'soccer_ball',  label:'Hittable Ball',cat:'Soccer Pitch',color:'#f8f8f0'},
   ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(ch=>({id:'text_'+ch.toLowerCase(),label:ch,cat:'Text',color:'#101828',c:'#101828',c2:'#f0f4ff',char:ch})),
+  ...'0123456789'.split('').map(ch=>({id:'text_'+ch,label:ch,cat:'Text',color:'#101828',c:'#101828',c2:'#f0f4ff',char:ch})),
   ...[
     ['text_tilde','~'],['text_bang','!'],['text_at','@'],['text_hash','#'],['text_dollar','$'],['text_percent','%'],['text_amp','&'],['text_question','?'],
-    ['text_comma',','],['text_period','.'],['text_lbrace','{'],['text_rbrace','}'],['text_plus','+'],['text_minus','-'],['text_star','*'],['text_slash','/']
+    ['text_comma',','],['text_period','.'],['text_lbrace','{'],['text_rbrace','}'],['text_plus','+'],['text_minus','-'],['text_star','*'],['text_slash','/'],
+    ['text_equal','='],['text_backslash','\\'],['text_pipe','|'],['text_semicolon',';'],['text_quote','"'],['text_backtick','`'],
+    ['text_lt','<'],['text_gt','>'],['text_lbracket','['],['text_rbracket',']'],['text_lparen','('],['text_rparen',')']
   ].map(([id,ch])=>({id,label:ch,cat:'Text',color:'#101828',c:'#101828',c2:'#f0f4ff',char:ch})),
   {id:'man',          label:'Man',          cat:'Pedestrian', color:'#4488cc'},
   {id:'woman',        label:'Woman',        cat:'Pedestrian', color:'#cc4488'},
